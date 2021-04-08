@@ -403,6 +403,7 @@ class Controller:
     def onselect(self, verts):
         path = Path(verts)
         self.xy_compute()
+        print(verts)
         self.ind = path.contains_points(self.xys)
         self.selected.flat[self.ind] = 1 if self.draw_mode == 'add' else 0
         gui.update_plots()
@@ -412,13 +413,8 @@ class Controller:
         gui.update_plots()
 
     def xy_compute(self):
-        startx = gui.x_sel[0]
-        stopx = gui.x_sel[1]
-
-        starty = gui.y_sel[1]
-        stopy = gui.y_sel[0]
-        xv, yv = np.meshgrid(np.linspace(startx, stopx - 1, stopx - startx).astype(int),
-                             np.linspace(starty, stopy - 1, stopy - starty).astype(int))
+        xv, yv = np.meshgrid(np.arange(data.get_data(data.slice).shape[1]),
+                             np.arange(data.get_data(data.slice).shape[0]))
         self.xys = np.vstack((xv.flatten(), yv.flatten())).T
 
     def reset(self):
