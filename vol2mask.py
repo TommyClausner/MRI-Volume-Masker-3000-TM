@@ -183,8 +183,6 @@ class GUI:
             return img
 
         # apply filters and update axes limits
-        self.update_axes_limits()
-        self.update_img_extent(new_data)
         filter = controller.filter['filter'][
             controller.filter['counter'] % len(controller.filter['name'])]
         filter_args = controller.filter['args'][
@@ -204,7 +202,8 @@ class GUI:
                                        ),
                                        (0, 1),
                                        self.mask_alpha)
-
+        self.update_axes_limits()
+        self.update_img_extent(new_data)
         # upper right corner with mask
         self.upper_img = _set_data(self.upper_img,
                                    new_data[:,
