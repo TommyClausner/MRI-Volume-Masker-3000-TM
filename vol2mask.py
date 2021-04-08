@@ -192,7 +192,6 @@ class GUI:
 
         # apply filters and update axes limits
         self.update_axes_limits(new_data)
-        new_data = new_data[:, int(self.y_sel[0]):int(self.y_sel[1]), int(self.x_sel[0]):int(self.x_sel[1])]
         filter = controller.filter['filter'][
             controller.filter['counter'] % len(controller.filter['name'])]
         filter_args = controller.filter['args'][
