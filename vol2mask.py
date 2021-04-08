@@ -15,7 +15,7 @@ for k in plt.rcParams.keys():
     if 'keymap' in k:
         for v in plt.rcParams[k]:
             plt.rcParams[k].remove(v)
-
+plt.rcParams['axes.ymargin'] = 0
 control_keys = 'navigation: up: next slice | '
 control_keys += 'down: previous slice  | '
 control_keys += 'v: switch view plane | '
@@ -33,7 +33,8 @@ class GUI:
     mask_alpha = 0.2
 
     status_text = ''
-    status_font = {'color': 'white', 'verticalalignment': 'top'}
+    status_font = {'color': 'white', 'verticalalignment': 'center',
+                   'horizontalalignment': 'left'}
 
     info_text = ''
     info_text_font = {'color': 'white', 'horizontalalignment': 'center',
@@ -50,34 +51,35 @@ class GUI:
                                       fontdict={'size': 8, 'color': 'w'})
 
         # divide into parts
-        gs = self.fig.add_gridspec(9, 12)
+        gs = self.fig.add_gridspec(20, 10)
 
         # main drawing window
-        self.main_ax = self.fig.add_subplot(gs[:8, :8])
+        self.title_ax = self.fig.add_subplot(gs[0, :7])
+        self.title_ax.axis('off')
+        self.title_ax.margins(0)
+
+        # main drawing window
+        self.main_ax = self.fig.add_subplot(gs[1:, :7])
         self.main_ax.axis('off')
         self.main_img = self.main_ax.imshow(data.get_data(data.slice), "gray")
         self.mask_main_img = self.main_ax.imshow(data.get_mask(data.slice),
                                                  'RdYlGn')
         # upper right window
-        self.upper_ax = self.fig.add_subplot(gs[:4, 8:])
+        self.upper_ax = self.fig.add_subplot(gs[:10, 7:])
         self.upper_ax.axis('off')
         self.upper_img = self.upper_ax.imshow(np.empty((2, 2)), "gray")
         self.mask_upper_img = self.upper_ax.imshow(np.empty((2, 2)), 'RdYlGn')
 
         # lower right window
-        self.lower_ax = self.fig.add_subplot(gs[4:8, 8:])
+        self.lower_ax = self.fig.add_subplot(gs[10:, 7:])
         self.lower_ax.axis('off')
         self.lower_img = self.lower_ax.imshow(np.empty((2, 2)), "gray")
         self.mask_lower_img = self.lower_ax.imshow(np.empty((2, 2)), 'RdYlGn')
 
-        # info text (bottom left)
-        self.text_ax = self.fig.add_subplot(gs[8, :8])
-        self.text_ax.axis('off')
-        self.text_ax.set_ylim([-1, 1])
-
         # info text object
-        self.status = self.text_ax.text(0, 0, self.status_text,
-                                        fontdict=self.status_font)
+        self.status = self.title_ax.set_title(self.status_text,
+                                             fontdict=self.status_font,
+                                             loc='left')
 
         # popup status change text
         self.popup_info = self.main_ax.text(0.5, 0.5, self.info_text,
@@ -404,7 +406,7 @@ class Controller:
                 first_dim_ind=data.slice)
 
             controller.disconnect()
-            gui.update_info_text('Slice set', 0.5)
+            gui.update_info_text('Slice set', 0.25)
         elif event.key == "up":
 
             data.slice += 1
@@ -422,14 +424,14 @@ class Controller:
         # switch between drawing and removing
         elif event.key == "d":
             self.draw_mode = 'remove' if self.draw_mode == 'add' else 'add'
-            gui.update_info_text(self.draw_mode, 0.5)
+            gui.update_info_text(self.draw_mode, 0.25)
         # Export data (write to file).
         elif event.key == "e":
             data.export()
-            gui.update_info_text('Data successfully exported', 0.5)
+            gui.update_info_text('Data successfully exported', 0.25)
         # Exit program.
         elif event.key == "q":
-            gui.update_info_text('Later...', 0.5)
+            gui.update_info_text('Later...', 0.25)
             plt.close(gui.fig)
             sys.exit()
         # Reduce alpha of mask overlay.
@@ -459,7 +461,7 @@ class Controller:
             self.filter['counter'] += 1
             gui.update_info_text(
                 self.filter['name'][
-                    self.filter['counter'] % len(self.filter['name'])], 0.5)
+                    self.filter['counter'] % len(self.filter['name'])], 0.25)
         else:
             update = False
 
@@ -477,7 +479,7 @@ class Controller:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('file', type=str, help='nifti file')
-    parser.add_argument('-m', '--mask', type=str, help='initial mask',
+    parser.add_argument('-m', '--mask', type=str, help='initial mask file',
                         default='auto')
     args = parser.parse_args()
 
@@ -486,7 +488,6 @@ def main():
     gui = GUI()
     controller = Controller()
     controller.connect()
-
     plt.show()
 
 
