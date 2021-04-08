@@ -2,6 +2,9 @@ import argparse
 import os
 import sys
 
+import matplotlib as mpl
+
+mpl.use('WxAgg')
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
@@ -11,6 +14,7 @@ from matplotlib.widgets import LassoSelector
 from scipy import ndimage
 
 plt.rcParams['toolbar'] = 'toolmanager'
+
 for k in plt.rcParams.keys():
     if 'keymap' in k:
         for v in plt.rcParams[k]:
@@ -37,7 +41,7 @@ class GUI:
 
     status_text = ''
     status_font = {'color': 'white', 'verticalalignment': 'center',
-                   'horizontalalignment': 'left'}
+                   'horizontalalignment': 'left', 'size': 8}
 
     info_text = ''
     info_text_font = {'color': 'white', 'horizontalalignment': 'center',
@@ -123,7 +127,6 @@ class GUI:
                                    img.shape[1] + 0.5, -0.5])
         self.mask_lower_img.set_extent([-0.5, img.shape[0] + 0.5,
                                         img.shape[1] + 0.5, -0.5])
-
 
     def update_axes_limits(self):
         """
@@ -433,6 +436,7 @@ class Controller:
         elif event.key == "d":
             self.draw_mode = 'remove' if self.draw_mode == 'add' else 'add'
             gui.update_info_text(self.draw_mode, 0.25)
+            update = False
         # Export data (write to file).
         elif event.key == "e":
             data.export()
@@ -471,7 +475,7 @@ class Controller:
                 self.filter['name'][
                     self.filter['counter'] % len(self.filter['name'])], 0.25)
         elif event.key == "escape":
-            pass
+            pass  # reset view
         else:
             update = False
 
