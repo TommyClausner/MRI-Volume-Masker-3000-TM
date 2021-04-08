@@ -90,8 +90,6 @@ class GUI:
                                             transform=self.main_ax.transAxes)
 
         self.main_ax.autoscale(False)
-        self.main_ax.callbacks.connect('xlim_changed', self._on_xlims_change)
-        self.main_ax.callbacks.connect('ylim_changed', self._on_ylims_change)
         self.x_sel = [0, data.get_data(data.slice).shape[1]]
         self.y_sel = [data.get_data(data.slice).shape[0], 0]
         # customize figure toolbar
@@ -128,17 +126,6 @@ class GUI:
         self.mask_lower_img.set_extent([-0.5, img.shape[0] + 0.5,
                                         img.shape[1] + 0.5, -0.5])
 
-    def _on_xlims_change(self, ax):
-        """
-        Detects change in xlim and sets values in self (to keep zoom / pan)
-        """
-        self.x_sel = [int(val) for val in ax.get_xlim()]
-
-    def _on_ylims_change(self, ax):
-        """
-        Detects change in ylim and sets values in self (to keep zoom / pan)
-        """
-        self.y_sel = [int(val) for val in ax.get_ylim()]
 
     def update_axes_limits(self):
         """
@@ -148,10 +135,8 @@ class GUI:
             The new volume data (3D). If None (default) data will be obtained
             using data.get_data().
         """
-        self.x_sel = [0, data.get_data(data.slice).shape[1]]
-        self.y_sel = [data.get_data(data.slice).shape[0], 0]
-        self.main_ax.set_xlim(self.x_sel)
-        self.main_ax.set_ylim(self.y_sel)
+        self.main_ax.set_xlim([0, data.get_data(data.slice).shape[1]])
+        self.main_ax.set_ylim([data.get_data(data.slice).shape[0], 0])
 
     def update_plots(self, new_data=None, new_mask=None, first_dim_ind=None):
         """
@@ -406,8 +391,6 @@ class Controller:
         self.xy_compute()
         self.ind = path.contains_points(self.xys)
         self.selected.flat[self.ind] = 1 if self.draw_mode == 'add' else 0
-        gui.x_sel = [0, data.get_data(data.slice).shape[1]]
-        gui.y_sel = [data.get_data(data.slice).shape[0], 0]
         gui.update_plots()
 
     def disconnect(self):
@@ -490,8 +473,7 @@ class Controller:
                 self.filter['name'][
                     self.filter['counter'] % len(self.filter['name'])], 0.25)
         elif event.key == "escape":
-            gui.x_sel = [0, data.get_data(data.slice).shape[1]]
-            gui.y_sel = [data.get_data(data.slice).shape[0], 0]
+            pass
         else:
             update = False
 
