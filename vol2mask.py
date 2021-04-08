@@ -17,7 +17,6 @@ for k in plt.rcParams.keys():
             plt.rcParams[k].remove(v)
 
 plt.rcParams['keymap.zoom'].append('z')
-plt.rcParams['keymap.pan'].append('p')
 
 plt.rcParams['axes.ymargin'] = 0
 control_keys = 'navigation: up: next slice | '
@@ -98,7 +97,7 @@ class GUI:
         # customize figure toolbar
         try:
             for rm_tools in ['home', 'back', 'forward', 'subplots', 'save',
-                             'help']:
+                             'help', 'pan']:
                 self.fig.canvas.manager.toolmanager.remove_tool(rm_tools)
         except AttributeError:
             print('no tools')
@@ -141,7 +140,7 @@ class GUI:
         """
         self.y_sel = [int(val) for val in ax.get_ylim()]
 
-    def update_axes_limits(self, new_data=None):
+    def update_axes_limits(self):
         """
         Updates axes limits to fit data.
 
@@ -149,14 +148,8 @@ class GUI:
             The new volume data (3D). If None (default) data will be obtained
             using data.get_data().
         """
-        if new_data is None:
-            self.main_ax.set_xlim([0, data.get_data().shape[2]])
-            self.main_ax.set_ylim([data.get_data().shape[1], 0])
-            self.update_img_extent(data.get_data())
-        else:
-            self.main_ax.set_xlim([0, new_data.shape[2]])
-            self.main_ax.set_ylim([new_data.shape[1], 0])
-            self.update_img_extent(new_data)
+        self.main_ax.set_xlim(self.x_sel)
+        self.main_ax.set_ylim(self.y_sel)
 
     def update_plots(self, new_data=None, new_mask=None, first_dim_ind=None):
         """
@@ -190,7 +183,8 @@ class GUI:
             return img
 
         # apply filters and update axes limits
-        self.update_axes_limits(new_data)
+        self.update_axes_limits()
+        self.update_img_extent(new_data)
         filter = controller.filter['filter'][
             controller.filter['counter'] % len(controller.filter['name'])]
         filter_args = controller.filter['args'][
@@ -198,8 +192,6 @@ class GUI:
 
         if filter is not None:
             new_data = filter(new_data, *filter_args)
-            new_data += new_data.min()
-            new_data /= new_mask.max()
 
         # central block with mask
         self.main_img = _set_data(self.main_img,
@@ -499,12 +491,14 @@ class Controller:
             gui.update_info_text(
                 self.filter['name'][
                     self.filter['counter'] % len(self.filter['name'])], 0.25)
+        elif event.key == "escape":
+            gui.x_sel = [0, data.get_data(data.slice).shape[1]]
+            gui.y_sel = [data.get_data(data.slice).shape[0], 0]
         else:
             update = False
 
         if update:
             self.reset()
-            gui.update_axes_limits()
             gui.update_plots()
 
     def connect(self):
