@@ -132,17 +132,17 @@ class GUI:
         self.mask_lower_img.set_extent([-0.5, img.shape[0] + 0.5,
                                         img.shape[1] + 0.5, -0.5])
 
-    def _on_xlims_change(self):
+    def _on_xlims_change(self, ax):
         """
         Detects change in xlim and sets values in self (to keep zoom / pan)
         """
-        self.x_sel = self.main_ax.get_xlim()
+        self.x_sel = ax.get_xlim()
 
     def _on_ylims_change(self, ax):
         """
         Detects change in ylim and sets values in self (to keep zoom / pan)
         """
-        self.y_sel = self.main_ax.get_ylim()
+        self.y_sel = ax.get_ylim()
 
     def update_axes_limits(self, new_data=None):
         """
