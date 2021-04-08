@@ -425,8 +425,8 @@ class Controller:
 
         starty = gui.y_sel[1]
         stopy = gui.y_sel[0]
-        xv, yv = np.meshgrid(np.linspace(startx, stopx, stopx - startx),
-                             np.linspace(starty, stopy, stopy - starty))
+        xv, yv = np.meshgrid(np.linspace(startx, stopx - 1, stopx - startx),
+                             np.linspace(starty, stopy - 1, stopy - starty)).astype(int)
         self.xys = np.vstack((xv.flatten(), yv.flatten())).T
 
     def reset(self):
