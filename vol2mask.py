@@ -3,8 +3,11 @@ import os
 import sys
 
 import matplotlib as mpl
+if sys.platform == "darwin":
+    mpl.use('WxAgg')
+elif (sys.platform == "linux") or (sys.platform == "linux2"):
+    mpl.use('TkAgg')
 
-mpl.use('WxAgg')
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np

@@ -3,4 +3,3 @@ nibabel==3.2.1
 matplotlib==3.4.1
 dipy==1.4.0
 scipy==1.6.2
-wxpython==4.1.1
