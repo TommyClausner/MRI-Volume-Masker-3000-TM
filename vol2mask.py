@@ -149,7 +149,7 @@ class GUI:
             using data.get_data().
         """
         self.x_sel = [0, data.get_data(data.slice).shape[1]]
-        self.y_sel = [data.get_data(data.slice).shape[0]]
+        self.y_sel = [data.get_data(data.slice).shape[0], 0]
         self.main_ax.set_xlim(self.x_sel)
         self.main_ax.set_ylim(self.y_sel)
 
