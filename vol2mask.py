@@ -91,13 +91,10 @@ class GUI:
                                             transform=self.main_ax.transAxes)
 
         self.main_ax.autoscale(False)
-
-        self.x_sel = [0, data.get_data(data.slice).shape[1]]
-        self.y_sel = [0, data.get_data(data.slice).shape[0]]
-
         self.main_ax.callbacks.connect('xlim_changed', self._on_xlims_change)
         self.main_ax.callbacks.connect('ylim_changed', self._on_ylims_change)
-
+        self.x_sel = [0, data.get_data(data.slice).shape[1]]
+        self.y_sel = [data.get_data(data.slice).shape[0], 0]
         # customize figure toolbar
         try:
             for rm_tools in ['home', 'back', 'forward', 'subplots', 'save',
@@ -114,10 +111,10 @@ class GUI:
         :param ndarray img:
             The new volume data (3D).
         """
-        extent = [self.x_sel[0],
-                  self.x_sel[1],
-                  self.y_sel[1],
-                  self.y_sel[0]]
+        extent = [self.main_ax.get_xlim()[0],
+                  self.main_ax.get_xlim()[1],
+                  self.main_ax.get_ylim()[0],
+                  self.main_ax.get_ylim()[1]]
         self.main_img.set_extent(extent)
 
         self.mask_main_img.set_extent(extent)
@@ -136,13 +133,13 @@ class GUI:
         """
         Detects change in xlim and sets values in self (to keep zoom / pan)
         """
-        self.x_sel = ax.get_xlim()
+        self.x_sel = [int(val) for val in ax.get_xlim()]
 
     def _on_ylims_change(self, ax):
         """
         Detects change in ylim and sets values in self (to keep zoom / pan)
         """
-        self.y_sel = ax.get_ylim()
+        self.y_sel = [int(val) for val in ax.get_ylim()]
 
     def update_axes_limits(self, new_data=None):
         """
@@ -152,11 +149,13 @@ class GUI:
             The new volume data (3D). If None (default) data will be obtained
             using data.get_data().
         """
-        self.main_ax.set_xlim(self.x_sel)
-        self.main_ax.set_ylim(self.y_sel)
         if new_data is None:
+            self.main_ax.set_xlim([0, data.get_data().shape[2]])
+            self.main_ax.set_ylim([data.get_data().shape[1], 0])
             self.update_img_extent(data.get_data())
         else:
+            self.main_ax.set_xlim([0, new_data.shape[2]])
+            self.main_ax.set_ylim([new_data.shape[1], 0])
             self.update_img_extent(new_data)
 
     def update_plots(self, new_data=None, new_mask=None, first_dim_ind=None):
@@ -421,8 +420,13 @@ class Controller:
         gui.update_plots()
 
     def xy_compute(self):
-        xv, yv = np.meshgrid(np.arange(data.get_data(data.slice).shape[1]),
-                             np.arange(data.get_data(data.slice).shape[0]))
+        startx = gui.x_sel[0]
+        stopx = gui.x_sel[1]
+
+        starty = gui.y_sel[1]
+        stopy = gui.y_sel[0]
+        xv, yv = np.meshgrid(np.linspace(startx, stopx, stopx - startx),
+                             np.linspace(starty, stopy, stopy - starty))
         self.xys = np.vstack((xv.flatten(), yv.flatten())).T
 
     def reset(self):
@@ -495,9 +499,6 @@ class Controller:
             gui.update_info_text(
                 self.filter['name'][
                     self.filter['counter'] % len(self.filter['name'])], 0.25)
-        elif event.key == "escape":
-            gui.x_sel = [0, data.get_data(data.slice).shape[1]]
-            gui.y_sel = [0, data.get_data(data.slice).shape[0]]
         else:
             update = False
 
