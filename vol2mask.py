@@ -404,6 +404,8 @@ class Controller:
         self.xy_compute()
         self.ind = path.contains_points(self.xys)
         self.selected.flat[self.ind] = 1 if self.draw_mode == 'add' else 0
+        gui.x_sel = [0, data.get_data(data.slice).shape[1]]
+        gui.y_sel = [data.get_data(data.slice).shape[0], 0]
         gui.update_plots()
 
     def disconnect(self):
