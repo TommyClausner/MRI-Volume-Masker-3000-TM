@@ -90,8 +90,6 @@ class GUI:
                                             transform=self.main_ax.transAxes)
 
         self.main_ax.autoscale(False)
-        self.x_sel = [0, data.get_data(data.slice).shape[1]]
-        self.y_sel = [data.get_data(data.slice).shape[0], 0]
         # customize figure toolbar
         try:
             for rm_tools in ['home', 'back', 'forward', 'subplots', 'save',
@@ -108,10 +106,10 @@ class GUI:
         :param ndarray img:
             The new volume data (3D).
         """
-        extent = [self.x_sel[0],
-                  self.x_sel[1],
-                  self.y_sel[0],
-                  self.y_sel[1]]
+        extent = [0,
+                  img.shape[2],
+                  img.shape[1],
+                  0]
         self.main_img.set_extent(extent)
 
         self.mask_main_img.set_extent(extent)
@@ -389,7 +387,7 @@ class Controller:
     def onselect(self, verts):
         path = Path(verts)
         self.xy_compute()
-        self.ind = path.contains_points(self.xys)
+        self.ind = path.contains_points(self.xys, radius=1)
         self.selected.flat[self.ind] = 1 if self.draw_mode == 'add' else 0
         gui.update_plots()
 
