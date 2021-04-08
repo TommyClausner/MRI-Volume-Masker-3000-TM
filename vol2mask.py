@@ -15,6 +15,10 @@ for k in plt.rcParams.keys():
     if 'keymap' in k:
         for v in plt.rcParams[k]:
             plt.rcParams[k].remove(v)
+
+plt.rcParams['keymap.zoom'].append('z')
+plt.rcParams['keymap.pan'].append('p')
+
 plt.rcParams['axes.ymargin'] = 0
 control_keys = 'navigation: up: next slice | '
 control_keys += 'down: previous slice  | '
@@ -87,6 +91,11 @@ class GUI:
                                             transform=self.main_ax.transAxes)
 
         self.main_ax.autoscale(False)
+
+        # customize figure toolbar
+        for rm_tools in ['home', 'back', 'forward', 'subplots', 'save',
+                         'help']:
+            self.fig.canvas.manager.toolmanager.remove_tool(rm_tools)
 
     def update_img_extent(self, img):
         """
@@ -168,6 +177,8 @@ class GUI:
 
         if filter is not None:
             new_data = filter(new_data, *filter_args)
+            new_data += new_data.min()
+            new_data /= new_mask.max()
 
         # central block with mask
         self.main_img = _set_data(self.main_img,
