@@ -110,10 +110,10 @@ class GUI:
         :param ndarray img:
             The new volume data (3D).
         """
-        extent = [self.main_ax.get_xlim()[0],
-                  self.main_ax.get_xlim()[1],
-                  self.main_ax.get_ylim()[0],
-                  self.main_ax.get_ylim()[1]]
+        extent = [self.x_sel[0],
+                  self.x_sel[1],
+                  self.y_sel[0],
+                  self.y_sel[1]]
         self.main_img.set_extent(extent)
 
         self.mask_main_img.set_extent(extent)
@@ -403,7 +403,6 @@ class Controller:
     def onselect(self, verts):
         path = Path(verts)
         self.xy_compute()
-        print(verts)
         self.ind = path.contains_points(self.xys)
         self.selected.flat[self.ind] = 1 if self.draw_mode == 'add' else 0
         gui.update_plots()
