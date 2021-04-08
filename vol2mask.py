@@ -82,8 +82,8 @@ class GUI:
 
         # info text object
         self.status = self.title_ax.set_title(self.status_text,
-                                             fontdict=self.status_font,
-                                             loc='left')
+                                              fontdict=self.status_font,
+                                              loc='left')
 
         # popup status change text
         self.popup_info = self.main_ax.text(0.5, 0.5, self.info_text,
@@ -93,9 +93,12 @@ class GUI:
         self.main_ax.autoscale(False)
 
         # customize figure toolbar
-        for rm_tools in ['home', 'back', 'forward', 'subplots', 'save',
-                         'help']:
-            self.fig.canvas.manager.toolmanager.remove_tool(rm_tools)
+        try:
+            for rm_tools in ['home', 'back', 'forward', 'subplots', 'save',
+                             'help']:
+                self.fig.canvas.manager.toolmanager.remove_tool(rm_tools)
+        except AttributeError:
+            print('no tools')
 
     def update_img_extent(self, img):
         """
@@ -105,10 +108,13 @@ class GUI:
         :param ndarray img:
             The new volume data (3D).
         """
-        self.main_img.set_extent([-0.5, img.shape[2] + 0.5,
-                                  img.shape[1] + 0.5, -0.5])
-        self.mask_main_img.set_extent([-0.5, img.shape[2] + 0.5,
-                                       img.shape[1] + 0.5, -0.5])
+        extent = [self.main_ax.get_xlim()[0],
+                  self.main_ax.get_xlim()[1],
+                  self.main_ax.get_ylim()[0],
+                  self.main_ax.get_ylim()[1]]
+        self.main_img.set_extent(extent)
+
+        self.mask_main_img.set_extent(extent)
 
         self.upper_img.set_extent([-0.5, img.shape[0] + 0.5,
                                    img.shape[2] + 0.5, -0.5])
@@ -229,7 +235,7 @@ class GUI:
         """
         Updates info text below figure
         """
-        self.status_text = 'slice: {} | draw mode: {} | filter: {}\n\n'
+        self.status_text = 'slice: {} | draw mode: {} | filter: {}\n'
         self.status_text = self.status_text.format(
             data.slice,
             controller.draw_mode,
