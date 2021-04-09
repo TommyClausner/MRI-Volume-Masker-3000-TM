@@ -21,6 +21,6 @@
     "reset zoom": "escape",
     "export mask": "e",
     "quit": "q",
-    "new file":  "n"
+    "new file":  "o"
   }
 }
