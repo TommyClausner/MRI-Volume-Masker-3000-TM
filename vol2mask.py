@@ -12,6 +12,8 @@ import argparse
 import json
 import os
 import sys
+from tkinter import Tk     # from tkinter import Tk for Python 3.x
+from tkinter.filedialog import askopenfilename
 import warnings
 
 import matplotlib as mpl
@@ -95,8 +97,8 @@ class GUI:
             warnings.warn("No zoom and pan tools available. "
                           "Try setting different backend in config",
                           UserWarning)
-        self.main_ax.callbacks.connect_gui('xlim_changed', self.on_xlims_change)
-        self.main_ax.callbacks.connect_gui('ylim_changed', self.on_ylims_change)
+        self.main_ax.callbacks.connect('xlim_changed', self.on_xlims_change)
+        self.main_ax.callbacks.connect('ylim_changed', self.on_ylims_change)
 
     def update_img_extent(self, img):
         """Updates image objects by replacing their extent value to fit data in
@@ -598,6 +600,25 @@ class Controller:
         gui.mask_upper_img.set_visible(gui.show_mask)
         gui.mask_lower_img.set_visible(gui.show_mask)
 
+    def _btnfct_new(self):
+        """Callback for new file selection dialog
+        """
+        if mpl.get_backend() == 'TkAgg':
+            global data
+            root = Tk()
+            root.withdraw()
+            fname = askopenfilename(
+                title="Select (f)MRI image data",
+                initialdir=os.path.abspath(data.volume_path))
+            root.destroy()
+            if len(fname) > 0:
+                data = Data(fname)
+                return True, None
+        else:
+            gui.update_popup_text('Can\'t launch file selection dialog.\n'
+                                  'Change matplotlib backend to TkAgg', 2)
+        return False, gui.ax_lims
+
     def button_handler(self, event):
         """Handles button presses
         """
@@ -637,6 +658,8 @@ class Controller:
         elif event.key == config['keyboard']['set slice']:
             self._btnfct_set_slice()
             reset = True
+        elif event.key == config['keyboard']['new file']:
+            reset, gui.ax_lims = self._btnfct_new()
         elif event.key == config['keyboard']['reset zoom']:
             gui.ax_lims = None
         else:
@@ -710,10 +733,24 @@ def main():
 
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('file', type=str, help='nifti file')
+    parser.add_argument('-f', '--file', type=str, help='nifti file',
+                        default='dialog')
     parser.add_argument('-m', '--mask', type=str, help='initial mask file',
                         default='auto')
     args = parser.parse_args()
+
+    if args.file == 'dialog':
+        if mpl.get_backend() == 'TkAgg':
+            root = Tk()
+            root.withdraw()
+            args.file = askopenfilename(
+                title="Select (f)MRI image data",
+                initialdir=os.getcwd())
+            root.destroy()
+        else:
+            raise Exception("Either provide input file using -f or change "
+                            "matplotlib backend to TkAgg to enable file "
+                            "selection dialogs (can be set in config.json).")
 
     # start program
     data = Data(args.file, args.mask)
