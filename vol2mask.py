@@ -604,16 +604,20 @@ class Controller:
         """Handles button presses
         """
         update = True
+        reset = False
 
         # execute button specific function or just pass (update = False)
         if event.key == "h":
             self._btnfct_help()
         elif event.key == config['keyboard']['slice up']:
             self._btnfct_next_slice()
+            reset = True
         elif event.key == config['keyboard']['slice down']:
             self._btnfct_prev_slice()
+            reset = True
         elif event.key == config['keyboard']['switch view plane']:
             self._btnfct_switch_plane()
+            reset = True
         elif event.key == config['keyboard']['switch draw mode']:
             self._btnfct_draw_mode()
         elif event.key == config['keyboard']['export mask']:
@@ -634,10 +638,15 @@ class Controller:
             self._btnfct_show_mask()
         elif event.key == config['keyboard']['set slice']:
             self._btnfct_set_slice()
+            reset = True
         elif event.key == config['keyboard']['reset zoom']:
             gui.ax_lims = None
         else:
             update = False
+
+        if reset:
+            # reset selection if not set
+            self.reset()
 
         # disable zoom and pan when updating window
         if update:
@@ -651,7 +660,6 @@ class Controller:
                 warnings.warn("No zoom and pan tools available. "
                               "Try setting different backend in config",
                               UserWarning)
-            self.reset()
             gui.update_plots()
 
     def connect(self):
@@ -668,7 +676,7 @@ def main():
 
     # variable definition on program level
     global data, gui, controller, config
-    
+
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                'config.json')
 
