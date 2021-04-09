@@ -2,15 +2,28 @@
 
 Use to draw volumetric masks for brain data.
 
-- draw mask using lasso selection
-- use enter to set selection
-- used d to switch between draw and remove mode
-- use up / down to iterate through slices
-- use v to switch view
-- use +/- and left/right to adjust mask alpha adn brightness
-- use f to apply different image filters
-- use e to export the mask (m_original_file_name.nii.gz)
-- use q to quit program
+```
+################################################
+Button mapping Tommy's MRI Volume Masker 3000 TM
+################################################
+
+toggle zoom: z
+reset zoom: escape
+enable / disable mask: m
+set slice: enter
+slice up: up
+slice down: down
+increase brightness: right
+toggle pan: p
+decrease brightness: left
+increase mask alpha: +
+decrease mask alpha: -
+switch draw mode: d
+switch view plane: v
+switch filter: f
+export mask: e
+quit: q
+```
 
 ![example image](https://github.com/TommyClausner/MRI-Volume-Masker-3000-TM/blob/main/example.png?raw=true)
 
