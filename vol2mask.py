@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+"""Used to draw brain masks on MRI image data (nii.gz).
+
+Usage:
+    python vol2mask.py path/to/volume.nii.gz
+
+Author:
+    Tommy Clausner (2020) - tommy.clausner@gmail.com
+"""
+
 import argparse
 import json
 import os
@@ -15,6 +25,8 @@ from scipy import ndimage
 
 
 class GUI:
+    """Graphical user interface (GUI) for Tommy's Volume Masker 3000 TM.
+    """
     c_max = 0.7
     mask_alpha = 0.2
     show_mask = True
@@ -32,6 +44,9 @@ class GUI:
     ax_lims = None
 
     def __init__(self):
+        """Constructor method
+        """
+
         # make main window
         self.fig = plt.figure(facecolor=(0.22, 0.22, 0.22))
         self.fig.canvas.manager.set_window_title(
@@ -80,16 +95,15 @@ class GUI:
             warnings.warn("No zoom and pan tools available. "
                           "Try setting different backend in config",
                           UserWarning)
-        self.main_ax.callbacks.connect('xlim_changed', self._on_xlims_change)
-        self.main_ax.callbacks.connect('ylim_changed', self._on_ylims_change)
+        self.main_ax.callbacks.connect('xlim_changed', self.on_xlims_change)
+        self.main_ax.callbacks.connect('ylim_changed', self.on_ylims_change)
 
     def update_img_extent(self, img):
-        """
-        Updates image objects by replacing their extent value to fit data in
+        """Updates image objects by replacing their extent value to fit data in
         img.
 
-        :param ndarray img:
-            The new volume data (3D).
+        :param img: The new volume data (3D).
+        :type img: ndarray
         """
         extent = [0,
                   img.shape[2],
@@ -110,28 +124,25 @@ class GUI:
                                         img.shape[1] + 0.5, -0.5])
 
     def update_axes_limits(self, ax_lims=None):
-        """
-        Updates axes limits to fit data.
+        """Updates axes limits to fit data.
 
-        :param None|ndarray new_data:
-            The new volume data (3D). If None (default) data will be obtained
-            using data.get_data().
+        :param ax_lims: Resets view.
+        :type ax_lims: None|list, optional
         """
         if ax_lims is None:
             self.main_ax.set_xlim([0, data.get_data(data.slice).shape[1]])
             self.main_ax.set_ylim([data.get_data(data.slice).shape[0], 0])
 
     def update_plots(self, new_data=None, new_mask=None, first_dim_ind=None):
-        """
-        Updates all plots.
+        """Updates all plots.
 
-        :param None|ndarray new_data:
-            New volume data (3D) to update the plots.
-        :param None|ndarray new_mask:
-            New volume mask (3D) to update the plots.
-        :param None|int first_dim_ind:
-            Slice index to show. If None (default) the middle slice will be
-            selected.
+        :param new_data: New volume data (3D) to update the plots.
+        :type new_data: None|ndarray, optional
+        :param new_mask: New volume mask (3D) to update the plots.
+        :type new_mask: None|ndarray, optional
+        :param first_dim_ind: Slice index to show. If None (default) the middle
+            slice will be selected.
+        :type first_dim_ind: None|int, optional
         :return:
         """
         if new_data is None:
@@ -208,8 +219,7 @@ class GUI:
         self.fig.canvas.draw_idle()
 
     def update_status_text(self):
-        """
-        Updates info text below figure
+        """Updates info text below figure
         """
         self.status_text = 'slice: {} | draw mode: {} | filter: {} | h help'
         self.status_text = self.status_text.format(
@@ -220,13 +230,12 @@ class GUI:
         self.status.set_text(self.status_text)
 
     def update_info_text(self, info, delay=0.):
-        """
-        Updates popup text on status change.
+        """Updates popup text on status change.
 
-        :param str info:
-            What to show.
-        :param float delay:
-            How long to show it.
+        :param info: What message to show.
+        :type info: str
+        :param delay: How long to show it (in seconds).
+        :type delay: float, optional
         """
         self.popup_info.set_text(info)
         self.fig.canvas.draw()
@@ -235,14 +244,26 @@ class GUI:
         self.popup_info.set_text('')
         self.fig.canvas.draw()
 
-    def _on_xlims_change(self, _):
-        self._on_ylims_change(self)
+    def on_xlims_change(self, _):
+        """Updates axes limits on change (e.g. zoom). Wrapper function of
+        :func:`vol2mask.GUI.on_ylims_change.`
+        """
+        self.on_ylims_change(self)
 
-    def _on_ylims_change(self, _):
+    def on_ylims_change(self, _):
+        """Updates axes limits on change (e.g. zoom).
+        """
         self.trigger_tool('zoom', if_up=True)
         self.ax_lims = [self.main_ax.get_xlim(), self.main_ax.get_ylim()]
 
     def trigger_tool(self, tool, if_up=True):
+        """Sets state of tool.
+
+        :param tool: Name of the tool to trigger.
+        :type tool: str
+        :param if_up: Whether to only trigger tool when is up (disable tool).
+        :type if_up: bool
+        """
         if self.fig.canvas.manager.toolmanager.get_tool(tool) is None:
             return
         if if_up:
@@ -253,9 +274,20 @@ class GUI:
 
 
 class Data:
+    """Data used for Tommy's Volume Masker 3000 TM.
+
+    :param volume_path: Full path to nifti file.
+    :type volume_path: str
+    :param make_mask: If make_mask='auto' (default), a brain mask is obtained
+        by analyzing the image data. If 'none', no brain mask will be created.
+        If path to nifti file, this file will be used as a mask.
+    :type make_mask: str
+    """
     swap_operations = []
 
     def __init__(self, volume_path, make_mask='auto'):
+        """Constructor method
+        """
         self.volume_path = volume_path
         # load volume and normalize
         print('reading nifti file...')
@@ -307,28 +339,58 @@ class Data:
                 print('done.')
 
     def get_data(self, first_dim_ind=None):
+        """Return 3D volume data.
+
+        :param first_dim_ind: Which slice of the first dimension.
+        :type: None|int, optional
+        :return: 3D volume data.
+        :rtype: ndarray
+        """
         if first_dim_ind is not None:
             return self.volume[first_dim_ind, :, :]
         return self.volume
 
     def get_mask(self, first_dim_ind=None):
+        """Return 3D mask data.
+
+        :param first_dim_ind: Which slice of the first dimension.
+        :type: None|int, optional
+        :return: 3D mask data.
+        :rtype: ndarray
+        """
         if first_dim_ind is not None:
             return self.mask[first_dim_ind, :, :]
         return self.mask
 
     def set_data(self, data, first_dim_ind=None):
+        """Set 3D volume data.
+
+        :param data: 3D input data.
+        :type: ndarray
+        :param first_dim_ind: Which slice of the first dimension.
+        :type: None|int, optional
+        """
         if first_dim_ind is not None:
             self.volume[first_dim_ind, :, :] = data
         else:
             self.volume = data
 
     def set_mask(self, mask, first_dim_ind=None):
+        """Set 3D mask data.
+
+        :param data: 3D input mask.
+        :type: ndarray
+        :param first_dim_ind: Which slice of the first dimension.
+        :type: None|int, optional
+        """
         if first_dim_ind is not None:
             self.mask[first_dim_ind, :, :] = mask
         else:
             self.mask = mask
 
     def switch(self):
+        """Switch view plane. Swaps data axes.
+        """
         self.set_data(self.get_data().swapaxes(0, 2))
         self.set_mask(self.get_mask().swapaxes(0, 2))
         self.set_data(self.get_data().swapaxes(1, 2))
@@ -338,9 +400,8 @@ class Data:
         self.swap_operations.append((1, 2))
 
     def export(self):
+        """Write mask to file.
         """
-                Write mask to file.
-                """
 
         # make nifti using information from volume and store
         print('saving...')
@@ -349,12 +410,22 @@ class Data:
         nib.save(out, self.save_path)
 
     def _reversed_mask_swap(self):
+        """Like :func:`vol2mask.Data.get_mask`, but in original orientation.
+
+        :return: 3D mask data in original orientation.
+        :rtype: ndarray
+        """
         data_mask = self.mask + 0
         for so in self.swap_operations[::-1]:
             data_mask = data_mask.swapaxes(*so)
         return data_mask
 
     def _reversed_data_swap(self):
+        """Like :func:`vol2mask.Data.get_data`, but in original orientation.
+
+        :return: 3D volume data in original orientation.
+        :rtype: ndarray
+        """
         data_volume = self.volume + 0
         for so in self.swap_operations[::-1]:
             data_volume = data_volume.swapaxes(*so)
@@ -362,14 +433,22 @@ class Data:
 
 
 class Controller:
+    """Controller for Tommy's Volume Masker 3000 TM.
+    """
     xys = []
     lasso = []
     ind = []
 
     def __init__(self):
+        """Constructor method
+        """
+
+        # link gui and data
         self.canvas = gui.main_ax.figure.canvas
         self.Npts = len(self.xys)
         self.selected = data.get_mask()[data.slice, :, :]
+
+        # set defaults
         self.draw_mode = config['start draw mode']
 
         self.filter = {
@@ -389,6 +468,8 @@ class Controller:
         self.reset()
 
     def onselect(self, verts):
+        """Callback function for lasso.
+        """
         path = Path(verts)
         self.xy_compute()
         self.ind = path.contains_points(self.xys, radius=1)
@@ -396,21 +477,29 @@ class Controller:
         gui.update_plots()
 
     def disconnect(self):
+        """Remove lasso.
+        """
         self.lasso.disconnect_events()
         gui.update_plots()
 
     def xy_compute(self):
+        """Transform image data into index data (for selection).
+        """
         xv, yv = np.meshgrid(np.arange(data.get_data(data.slice).shape[1]),
                              np.arange(data.get_data(data.slice).shape[0]))
         self.xys = np.vstack((xv.flatten(), yv.flatten())).T
 
     def reset(self):
+        """Reset lasso selection
+        """
         self.xy_compute()
         self.ind = []
         self.selected = data.get_mask()[data.slice, :, :].flatten()
         self.lasso = LassoSelector(gui.main_ax, onselect=self.onselect)
 
     def _btnfct_set_slice(self):
+        """Callback for set slice button
+        """
         data.set_mask(
             controller.selected.reshape(data.get_mask(data.slice).shape),
             first_dim_ind=data.slice)
@@ -418,60 +507,84 @@ class Controller:
         gui.update_info_text('Slice set', 0.25)
 
     def _btnfct_next_slice(self):
+        """Callback for next slice button
+        """
         data.slice += 1
         if data.slice >= data.volume.shape[0]:
             data.slice = data.volume.shape[0] - 1
 
     def _btnfct_prev_slice(self):
+        """Callback for previous slice button
+        """
         data.slice -= 1
         if data.slice < 0:
             data.slice = 0
 
     def _btnfct_switch_plane(self):
+        """Callback for switch view plane button
+        """
         data.switch()
         data.slice = int(data.get_data().shape[0] / 2)
         gui.ax_lims = None
 
     def _btnfct_draw_mode(self):
+        """Callback for switch draw mode button
+        """
         self.draw_mode = 'remove' if self.draw_mode == 'add' else 'add'
         gui.update_info_text(self.draw_mode, 0.25)
 
     def _btnfct_export(self):
+        """Callback for export button
+        """
         data.export()
         gui.update_info_text('Data successfully exported', 0.25)
 
     def _btnfct_quit(self):
+        """Callback for quit button
+        """
         gui.update_info_text('Later...', 0.25)
         plt.close(gui.fig)
         sys.exit()
 
     def _btnfct_alpha_plus(self):
+        """Callback for increasing mask alpha button
+        """
         gui.mask_alpha -= 0.05
         if gui.mask_alpha < 0:
             gui.mask_alpha = 0
 
     def _btnfct_alpha_minus(self):
+        """Callback for decreasing mask alpha button
+        """
         gui.mask_alpha += 0.05
         if gui.mask_alpha > 1:
             gui.mask_alpha = 1
 
     def _btnfct_brightness_inc(self):
+        """Callback for increasing image brightness button
+        """
         gui.c_max -= 0.05
         if gui.c_max < 0:
             gui.c_max = 0
 
     def _btnfct_brightness_dec(self):
+        """Callback for decreasing image brightness button
+        """
         gui.c_max += 0.05
         if gui.c_max > 1:
             gui.c_max = 1
 
     def _btnfct_switch_filter(self):
+        """Callback for switching filter button
+        """
         self.filter['counter'] += 1
         gui.update_info_text(
             self.filter['name'][
                 self.filter['counter'] % len(self.filter['name'])], 0.25)
 
     def _btnfct_help(self):
+        """Callback for help button
+        """
         print('\n################################################\n'
               'Button mapping Tommy\'s MRI Volume Masker 3000 TM\n'
               '################################################\n')
@@ -480,15 +593,21 @@ class Controller:
         gui.update_info_text('see console output for help...', 1)
 
     def _btnfct_show_mask(self):
+        """Callback for show / hide mask button
+        """
         gui.show_mask = not gui.show_mask
         gui.mask_main_img.set_visible(gui.show_mask)
         gui.mask_upper_img.set_visible(gui.show_mask)
         gui.mask_lower_img.set_visible(gui.show_mask)
 
     def button_handler(self, event):
+        """Handles button presses
+        """
         update = True
-        if event.key == config['keyboard']['set slice']:
-            self._btnfct_set_slice()
+
+        # execute button specific function or just pass (update = False)
+        if event.key == "h":
+            self._btnfct_help()
         elif event.key == config['keyboard']['slice up']:
             self._btnfct_next_slice()
         elif event.key == config['keyboard']['slice down']:
@@ -513,14 +632,17 @@ class Controller:
             self._btnfct_switch_filter()
         elif event.key == config['keyboard']['enable / disable mask']:
             self._btnfct_show_mask()
-        elif event.key == "h":
-            self._btnfct_help()
+        elif event.key == config['keyboard']['set slice']:
+            self._btnfct_set_slice()
         elif event.key == config['keyboard']['reset zoom']:
             gui.ax_lims = None
         else:
             update = False
 
+        # disable zoom and pan when updating window
         if update:
+
+            # in case backend does not support tools
             try:
                 gui.trigger_tool('zoom', if_up=True)
                 gui.trigger_tool('pan', if_up=True)
@@ -533,15 +655,24 @@ class Controller:
             gui.update_plots()
 
     def connect(self):
+        """Connect :class:`vol2mask.GUI` to  :class:`vol2mask.Controller`
+        """
         gui.cid = gui.fig.canvas.mpl_connect("key_press_event",
                                              self.button_handler)
         gui.update_plots()
 
 
 def main():
+    """ Execute program
+    """
+
+    # variable definition on program level
     global data, gui, controller, config
+    
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                'config.json')
+
+    # if config not found, create from default config (config_template.json)
     try:
         with open(config_path, 'r') as jf:
             config = json.load(jf)
@@ -557,6 +688,7 @@ def main():
     if config['backend']:
         mpl.use(config['backend'])
 
+    # setup pan and zoom tool
     plt.rcParams['toolbar'] = 'toolmanager'
 
     for k in plt.rcParams.keys():
@@ -567,14 +699,17 @@ def main():
     plt.rcParams['keymap.zoom'].append(config['keyboard']['toggle zoom'])
     plt.rcParams['keymap.pan'].append(config['keyboard']['toggle pan'])
 
+    # ensure maximum vertical real estate
     plt.rcParams['axes.ymargin'] = 0
 
+    # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('file', type=str, help='nifti file')
     parser.add_argument('-m', '--mask', type=str, help='initial mask file',
                         default='auto')
     args = parser.parse_args()
 
+    # start program
     data = Data(args.file, args.mask)
     gui = GUI()
     controller = Controller()
@@ -583,5 +718,6 @@ def main():
 
 
 if __name__ == '__main__':
+    # variable definition on module level
     global data, gui, controller, config
     main()
