@@ -24,7 +24,7 @@ toggle zoom: z
 reset zoom: escape
 export mask: e
 quit: q
-new file: n
+new file: o
 ```
 
 ![example image](https://github.com/TommyClausner/MRI-Volume-Masker-3000-TM/blob/main/example.png?raw=true)
