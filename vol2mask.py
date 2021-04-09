@@ -95,8 +95,8 @@ class GUI:
             warnings.warn("No zoom and pan tools available. "
                           "Try setting different backend in config",
                           UserWarning)
-        self.main_ax.callbacks.connect('xlim_changed', self.on_xlims_change)
-        self.main_ax.callbacks.connect('ylim_changed', self.on_ylims_change)
+        self.main_ax.callbacks.connect_gui('xlim_changed', self.on_xlims_change)
+        self.main_ax.callbacks.connect_gui('ylim_changed', self.on_ylims_change)
 
     def update_img_extent(self, img):
         """Updates image objects by replacing their extent value to fit data in
@@ -215,12 +215,7 @@ class GUI:
                                         (0, 1),
                                         tmp_alpha)
 
-        self.update_status_text()
-        self.fig.canvas.draw_idle()
-
-    def update_status_text(self):
-        """Updates info text below figure
-        """
+        # Update figure title text
         self.status_text = 'slice: {} | draw mode: {} | filter: {} | h help'
         self.status_text = self.status_text.format(
             data.slice,
@@ -228,8 +223,9 @@ class GUI:
             controller.filter['name'][controller.filter['counter'] %
                                       len(controller.filter['name'])])
         self.status.set_text(self.status_text)
+        self.fig.canvas.draw_idle()
 
-    def update_info_text(self, info, delay=0.):
+    def update_popup_text(self, info, delay=0.):
         """Updates popup text on status change.
 
         :param info: What message to show.
@@ -283,7 +279,7 @@ class Data:
         If path to nifti file, this file will be used as a mask.
     :type make_mask: str
     """
-    swap_operations = []
+    axes_swaps = []
 
     def __init__(self, volume_path, make_mask='auto'):
         """Constructor method
@@ -311,7 +307,9 @@ class Data:
         if self.slice is None:
             self.slice = int(self.volume.shape[0] / 2)
 
-        self.swap_operations.append((2, 0))
+        # keep track of how often axes have been swapped (reversed for export)
+        self.axes_swaps.append((2, 0))
+
         self.affine = img.affine.copy()
         self.header = img.header.copy()
 
@@ -388,7 +386,7 @@ class Data:
         else:
             self.mask = mask
 
-    def switch(self):
+    def switch_view_plane(self):
         """Switch view plane. Swaps data axes.
         """
         self.set_data(self.get_data().swapaxes(0, 2))
@@ -396,10 +394,10 @@ class Data:
         self.set_data(self.get_data().swapaxes(1, 2))
         self.set_mask(self.get_mask().swapaxes(1, 2))
 
-        self.swap_operations.append((0, 2))
-        self.swap_operations.append((1, 2))
+        self.axes_swaps.append((0, 2))
+        self.axes_swaps.append((1, 2))
 
-    def export(self):
+    def export_mask(self):
         """Write mask to file.
         """
 
@@ -416,7 +414,7 @@ class Data:
         :rtype: ndarray
         """
         data_mask = self.mask + 0
-        for so in self.swap_operations[::-1]:
+        for so in self.axes_swaps[::-1]:
             data_mask = data_mask.swapaxes(*so)
         return data_mask
 
@@ -427,7 +425,7 @@ class Data:
         :rtype: ndarray
         """
         data_volume = self.volume + 0
-        for so in self.swap_operations[::-1]:
+        for so in self.axes_swaps[::-1]:
             data_volume = data_volume.swapaxes(*so)
         return data_volume
 
@@ -465,7 +463,7 @@ class Controller:
                                         for ind, n in
                                         enumerate(self.filter['name'])
                                         if n == config['start filter']][0]})
-        self.reset()
+        self.reset_selection()
 
     def onselect(self, verts):
         """Callback function for lasso.
@@ -489,7 +487,7 @@ class Controller:
                              np.arange(data.get_data(data.slice).shape[0]))
         self.xys = np.vstack((xv.flatten(), yv.flatten())).T
 
-    def reset(self):
+    def reset_selection(self):
         """Reset lasso selection
         """
         self.xy_compute()
@@ -504,7 +502,7 @@ class Controller:
             controller.selected.reshape(data.get_mask(data.slice).shape),
             first_dim_ind=data.slice)
         controller.disconnect()
-        gui.update_info_text('Slice set', 0.25)
+        gui.update_popup_text('Slice set', 0.25)
 
     def _btnfct_next_slice(self):
         """Callback for next slice button
@@ -523,7 +521,7 @@ class Controller:
     def _btnfct_switch_plane(self):
         """Callback for switch view plane button
         """
-        data.switch()
+        data.switch_view_plane()
         data.slice = int(data.get_data().shape[0] / 2)
         gui.ax_lims = None
 
@@ -531,18 +529,18 @@ class Controller:
         """Callback for switch draw mode button
         """
         self.draw_mode = 'remove' if self.draw_mode == 'add' else 'add'
-        gui.update_info_text(self.draw_mode, 0.25)
+        gui.update_popup_text(self.draw_mode, 0.25)
 
     def _btnfct_export(self):
         """Callback for export button
         """
-        data.export()
-        gui.update_info_text('Data successfully exported', 0.25)
+        data.export_mask()
+        gui.update_popup_text('Data successfully exported', 0.25)
 
     def _btnfct_quit(self):
         """Callback for quit button
         """
-        gui.update_info_text('Later...', 0.25)
+        gui.update_popup_text('Later...', 0.25)
         plt.close(gui.fig)
         sys.exit()
 
@@ -578,7 +576,7 @@ class Controller:
         """Callback for switching filter button
         """
         self.filter['counter'] += 1
-        gui.update_info_text(
+        gui.update_popup_text(
             self.filter['name'][
                 self.filter['counter'] % len(self.filter['name'])], 0.25)
 
@@ -590,7 +588,7 @@ class Controller:
               '################################################\n')
         for k, v in config['keyboard'].items():
             print(': '.join([k, v]))
-        gui.update_info_text('see console output for help...', 1)
+        gui.update_popup_text('see console output for help...', 1)
 
     def _btnfct_show_mask(self):
         """Callback for show / hide mask button
@@ -646,7 +644,7 @@ class Controller:
 
         if reset:
             # reset selection if not set
-            self.reset()
+            self.reset_selection()
 
         # disable zoom and pan when updating window
         if update:
@@ -662,7 +660,7 @@ class Controller:
                               UserWarning)
             gui.update_plots()
 
-    def connect(self):
+    def connect_gui(self):
         """Connect :class:`vol2mask.GUI` to  :class:`vol2mask.Controller`
         """
         gui.cid = gui.fig.canvas.mpl_connect("key_press_event",
@@ -721,7 +719,7 @@ def main():
     data = Data(args.file, args.mask)
     gui = GUI()
     controller = Controller()
-    controller.connect()
+    controller.connect_gui()
     plt.show()
 
 
