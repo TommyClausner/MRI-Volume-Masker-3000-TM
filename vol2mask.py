@@ -368,7 +368,6 @@ class Controller:
 
     def __init__(self):
         self.canvas = gui.main_ax.figure.canvas
-        self.reset()
         self.Npts = len(self.xys)
         self.selected = data.get_mask()[data.slice, :, :]
         self.draw_mode = config['start draw mode']
@@ -387,6 +386,7 @@ class Controller:
                                         for ind, n in
                                         enumerate(self.filter['name'])
                                         if n == config['start filter']][0]})
+        self.reset()
 
     def onselect(self, verts):
         path = Path(verts)
@@ -406,9 +406,9 @@ class Controller:
 
     def reset(self):
         self.xy_compute()
-        self.lasso = LassoSelector(gui.main_ax, onselect=self.onselect)
         self.ind = []
         self.selected = data.get_mask()[data.slice, :, :].flatten()
+        self.lasso = LassoSelector(gui.main_ax, onselect=self.onselect)
 
     def _btnfct_set_slice(self):
         data.set_mask(
@@ -521,7 +521,6 @@ class Controller:
             update = False
 
         if update:
-            self.reset()
             try:
                 gui.trigger_tool('zoom', if_up=True)
                 gui.trigger_tool('pan', if_up=True)
@@ -530,6 +529,7 @@ class Controller:
                 warnings.warn("No zoom and pan tools available. "
                               "Try setting different backend in config",
                               UserWarning)
+            self.reset()
             gui.update_plots()
 
     def connect(self):
