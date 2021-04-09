@@ -607,7 +607,6 @@ class Controller:
             global data
             root = Tk()
             root.withdraw()
-            print(os.path.abspath(data.volume_path))
             fname = askopenfilename(
                 title="Select (f)MRI image data",
                 initialdir=os.path.dirname(os.path.abspath(data.volume_path)))
