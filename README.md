@@ -15,6 +15,7 @@ decrease brightness: left
 increase mask alpha: +
 decrease mask alpha: -
 enable / disable mask: m
+binary mask view: b
 switch draw mode: d
 switch view plane: v
 switch filter: f
