@@ -1,6 +1,6 @@
 # Tommy's MRI-Volume-Masker-3000-TM
 
-Use to draw volumetric masks for brain data.
+Use to draw volumetric masks for brain data. Requires python >= 3.7
 
 ```
 ################################################
