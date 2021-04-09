@@ -1,13 +1,10 @@
 import argparse
+import json
 import os
 import sys
+import warnings
 
 import matplotlib as mpl
-if sys.platform == "darwin":
-    mpl.use('WxAgg')
-elif (sys.platform == "linux") or (sys.platform == "linux2"):
-    mpl.use('TkAgg')
-
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
@@ -16,31 +13,11 @@ from matplotlib.path import Path
 from matplotlib.widgets import LassoSelector
 from scipy import ndimage
 
-plt.rcParams['toolbar'] = 'toolmanager'
-
-for k in plt.rcParams.keys():
-    if 'keymap' in k:
-        for v in plt.rcParams[k]:
-            plt.rcParams[k].remove(v)
-
-plt.rcParams['keymap.zoom'].append('z')
-
-plt.rcParams['axes.ymargin'] = 0
-control_keys = 'navigation: up: next slice | '
-control_keys += 'down: previous slice  | '
-control_keys += 'v: switch view plane | '
-control_keys += 'f: switch filter\n'
-control_keys += 'control: enter: accept current slice | '
-control_keys += 'e: export mask | '
-control_keys += 'q: quit\n'
-control_keys += 'drawing: d: draw mode | '
-control_keys += '±: change mask alpha | '
-control_keys += 'left / right: change brightness'
-
 
 class GUI:
     c_max = 0.7
     mask_alpha = 0.2
+    show_mask = True
 
     status_text = ''
     status_font = {'color': 'white', 'verticalalignment': 'center',
@@ -52,6 +29,8 @@ class GUI:
 
     cid = None
 
+    ax_lims = None
+
     def __init__(self):
         # make main window
         self.fig = plt.figure(facecolor=(0.22, 0.22, 0.22))
@@ -61,33 +40,28 @@ class GUI:
                                       fontdict={'size': 8, 'color': 'w'})
 
         # divide into parts
-        gs = self.fig.add_gridspec(20, 10)
+        gs = self.fig.add_gridspec(2, 10)
 
         # main drawing window
-        self.title_ax = self.fig.add_subplot(gs[0, :7])
-        self.title_ax.axis('off')
-        self.title_ax.margins(0)
-
-        # main drawing window
-        self.main_ax = self.fig.add_subplot(gs[1:, :7])
+        self.main_ax = self.fig.add_subplot(gs[:, :7])
         self.main_ax.axis('off')
         self.main_img = self.main_ax.imshow(data.get_data(data.slice), "gray")
         self.mask_main_img = self.main_ax.imshow(data.get_mask(data.slice),
                                                  'RdYlGn')
         # upper right window
-        self.upper_ax = self.fig.add_subplot(gs[:10, 7:])
+        self.upper_ax = self.fig.add_subplot(gs[:1, 7:])
         self.upper_ax.axis('off')
         self.upper_img = self.upper_ax.imshow(np.empty((2, 2)), "gray")
         self.mask_upper_img = self.upper_ax.imshow(np.empty((2, 2)), 'RdYlGn')
 
         # lower right window
-        self.lower_ax = self.fig.add_subplot(gs[10:, 7:])
+        self.lower_ax = self.fig.add_subplot(gs[1:, 7:])
         self.lower_ax.axis('off')
         self.lower_img = self.lower_ax.imshow(np.empty((2, 2)), "gray")
         self.mask_lower_img = self.lower_ax.imshow(np.empty((2, 2)), 'RdYlGn')
 
         # info text object
-        self.status = self.title_ax.set_title(self.status_text,
+        self.status = self.main_ax.set_title(self.status_text,
                                               fontdict=self.status_font,
                                               loc='left')
 
@@ -100,10 +74,14 @@ class GUI:
         # customize figure toolbar
         try:
             for rm_tools in ['home', 'back', 'forward', 'subplots', 'save',
-                             'help', 'pan']:
+                             'help']:
                 self.fig.canvas.manager.toolmanager.remove_tool(rm_tools)
         except AttributeError:
-            print('no tools')
+            warnings.warn("No zoom and pan tools available. "
+                          "Try setting different backend in config",
+                          UserWarning)
+        self.main_ax.callbacks.connect('xlim_changed', self._on_xlims_change)
+        self.main_ax.callbacks.connect('ylim_changed', self._on_ylims_change)
 
     def update_img_extent(self, img):
         """
@@ -131,7 +109,7 @@ class GUI:
         self.mask_lower_img.set_extent([-0.5, img.shape[0] + 0.5,
                                         img.shape[1] + 0.5, -0.5])
 
-    def update_axes_limits(self):
+    def update_axes_limits(self, ax_lims=None):
         """
         Updates axes limits to fit data.
 
@@ -139,8 +117,9 @@ class GUI:
             The new volume data (3D). If None (default) data will be obtained
             using data.get_data().
         """
-        self.main_ax.set_xlim([0, data.get_data(data.slice).shape[1]])
-        self.main_ax.set_ylim([data.get_data(data.slice).shape[0], 0])
+        if ax_lims is None:
+            self.main_ax.set_xlim([0, data.get_data(data.slice).shape[1]])
+            self.main_ax.set_ylim([data.get_data(data.slice).shape[0], 0])
 
     def update_plots(self, new_data=None, new_mask=None, first_dim_ind=None):
         """
@@ -193,7 +172,7 @@ class GUI:
                                        ),
                                        (0, 1),
                                        self.mask_alpha)
-        self.update_axes_limits()
+        self.update_axes_limits(self.ax_lims)
         self.update_img_extent(new_data)
         # upper right corner with mask
         self.upper_img = _set_data(self.upper_img,
@@ -232,14 +211,12 @@ class GUI:
         """
         Updates info text below figure
         """
-        self.status_text = 'slice: {} | draw mode: {} | filter: {}\n'
+        self.status_text = 'slice: {} | draw mode: {} | filter: {} | h help'
         self.status_text = self.status_text.format(
             data.slice,
             controller.draw_mode,
             controller.filter['name'][controller.filter['counter'] %
                                       len(controller.filter['name'])])
-        self.status_text += control_keys
-
         self.status.set_text(self.status_text)
 
     def update_info_text(self, info, delay=0.):
@@ -258,10 +235,25 @@ class GUI:
         self.popup_info.set_text('')
         self.fig.canvas.draw()
 
+    def _on_xlims_change(self, _):
+        self._on_ylims_change(self)
+
+    def _on_ylims_change(self, _):
+        self.trigger_tool('zoom', if_up=True)
+        self.ax_lims = [self.main_ax.get_xlim(), self.main_ax.get_ylim()]
+
+    def trigger_tool(self, tool, if_up=True):
+        if self.fig.canvas.manager.toolmanager.get_tool(tool) is None:
+            return
+        if if_up:
+            if self.fig.canvas.manager.toolmanager.get_tool(tool)._toggled:
+                self.fig.canvas.manager.toolmanager.trigger_tool(tool)
+        else:
+            self.fig.canvas.manager.toolmanager.trigger_tool(tool)
+
 
 class Data:
     swap_operations = []
-    slice = None
 
     def __init__(self, volume_path, make_mask='auto'):
         self.volume_path = volume_path
@@ -274,6 +266,8 @@ class Data:
         self.volume = img.get_fdata()
         self.volume -= self.volume.min()
         self.volume /= self.volume.max()
+
+        self.slice = None if not config['start slice'] else config['start slice']
 
         # in case of 4D volumes only extract spatial dims
         if self.volume.ndim > 3:
@@ -371,16 +365,15 @@ class Controller:
     xys = []
     lasso = []
     ind = []
-    draw_mode = 'add'
 
     def __init__(self):
         self.canvas = gui.main_ax.figure.canvas
         self.reset()
         self.Npts = len(self.xys)
         self.selected = data.get_mask()[data.slice, :, :]
+        self.draw_mode = config['start draw mode']
 
         self.filter = {
-            'counter': 0,
             'name': ['no filter', 'sobel', 'gauss'],
             'filter': [None,
                        ndimage.sobel,
@@ -389,6 +382,11 @@ class Controller:
                      [],
                      [2 * data.header.get_zooms()[0]]]
         }
+
+        self.filter.update({'counter': [ind
+                                        for ind, n in
+                                        enumerate(self.filter['name'])
+                                        if n == config['start filter']][0]})
 
     def onselect(self, verts):
         path = Path(verts)
@@ -412,78 +410,126 @@ class Controller:
         self.ind = []
         self.selected = data.get_mask()[data.slice, :, :].flatten()
 
+    def _btnfct_set_slice(self):
+        data.set_mask(
+            controller.selected.reshape(data.get_mask(data.slice).shape),
+            first_dim_ind=data.slice)
+        controller.disconnect()
+        gui.update_info_text('Slice set', 0.25)
+
+    def _btnfct_next_slice(self):
+        data.slice += 1
+        if data.slice >= data.volume.shape[0]:
+            data.slice = data.volume.shape[0] - 1
+
+    def _btnfct_prev_slice(self):
+        data.slice -= 1
+        if data.slice < 0:
+            data.slice = 0
+
+    def _btnfct_switch_plane(self):
+        data.switch()
+        data.slice = int(data.get_data().shape[0] / 2)
+        gui.ax_lims = None
+
+    def _btnfct_draw_mode(self):
+        self.draw_mode = 'remove' if self.draw_mode == 'add' else 'add'
+        gui.update_info_text(self.draw_mode, 0.25)
+
+    def _btnfct_export(self):
+        data.export()
+        gui.update_info_text('Data successfully exported', 0.25)
+
+    def _btnfct_quit(self):
+        gui.update_info_text('Later...', 0.25)
+        plt.close(gui.fig)
+        sys.exit()
+
+    def _btnfct_alpha_plus(self):
+        gui.mask_alpha -= 0.05
+        if gui.mask_alpha < 0:
+            gui.mask_alpha = 0
+
+    def _btnfct_alpha_minus(self):
+        gui.mask_alpha += 0.05
+        if gui.mask_alpha > 1:
+            gui.mask_alpha = 1
+
+    def _btnfct_brightness_inc(self):
+        gui.c_max -= 0.05
+        if gui.c_max < 0:
+            gui.c_max = 0
+
+    def _btnfct_brightness_dec(self):
+        gui.c_max += 0.05
+        if gui.c_max > 1:
+            gui.c_max = 1
+
+    def _btnfct_switch_filter(self):
+        self.filter['counter'] += 1
+        gui.update_info_text(
+            self.filter['name'][
+                self.filter['counter'] % len(self.filter['name'])], 0.25)
+
+    def _btnfct_help(self):
+        print('\n################################################\n'
+              'Button mapping Tommy\'s MRI Volume Masker 3000 TM\n'
+              '################################################\n')
+        for k, v in config['keyboard'].items():
+            print(': '.join([k, v]))
+        gui.update_info_text('see console output for help...', 1)
+
+    def _btnfct_show_mask(self):
+        gui.show_mask = not gui.show_mask
+        gui.mask_main_img.set_visible(gui.show_mask)
+        gui.mask_upper_img.set_visible(gui.show_mask)
+        gui.mask_lower_img.set_visible(gui.show_mask)
+
     def button_handler(self, event):
         update = True
-        if event.key == "enter":
-            data.set_mask(
-                controller.selected.reshape(data.get_mask(data.slice).shape),
-                first_dim_ind=data.slice)
-
-            controller.disconnect()
-            gui.update_info_text('Slice set', 0.25)
-        elif event.key == "up":
-
-            data.slice += 1
-            if data.slice >= data.volume.shape[0]:
-                data.slice = data.volume.shape[0] - 1
-        # Select previous slice for displaying.
-        elif event.key == "down":
-            data.slice -= 1
-            if data.slice < 0:
-                data.slice = 0
-        # Switch view plane.
-        elif event.key == "v":
-            data.switch()
-            data.slice = int(data.get_data().shape[0] / 2)
-        # switch between drawing and removing
-        elif event.key == "d":
-            self.draw_mode = 'remove' if self.draw_mode == 'add' else 'add'
-            gui.update_info_text(self.draw_mode, 0.25)
-            update = False
-        # Export data (write to file).
-        elif event.key == "e":
-            data.export()
-            gui.update_info_text('Data successfully exported', 0.25)
-        # Exit program.
-        elif event.key == "q":
-            gui.update_info_text('Later...', 0.25)
-            plt.close(gui.fig)
-            sys.exit()
-        # Reduce alpha of mask overlay.
-        elif event.key == "+":
-            gui.mask_alpha -= 0.05
-            if gui.mask_alpha < 0:
-                gui.mask_alpha = 0
-
-        # Increase alpha of mask overlay.
-        elif event.key == "-":
-            gui.mask_alpha += 0.05
-            if gui.mask_alpha > 1:
-                gui.mask_alpha = 1
-        # Lower upper clim of plots.
-        elif event.key == "right":
-            gui.c_max -= 0.05
-            if gui.c_max < 0:
-                gui.c_max = 0
-
-        # Raise upper clim of plots.
-        elif event.key == "left":
-            gui.c_max += 0.05
-            if gui.c_max > 1:
-                gui.c_max = 1
-        # switch between filters
-        elif event.key == "f":
-            self.filter['counter'] += 1
-            gui.update_info_text(
-                self.filter['name'][
-                    self.filter['counter'] % len(self.filter['name'])], 0.25)
-        elif event.key == "escape":
-            pass  # reset view
+        if event.key == config['keyboard']['set slice']:
+            self._btnfct_set_slice()
+        elif event.key == config['keyboard']['slice up']:
+            self._btnfct_next_slice()
+        elif event.key == config['keyboard']['slice down']:
+            self._btnfct_prev_slice()
+        elif event.key == config['keyboard']['switch view plane']:
+            self._btnfct_switch_plane()
+        elif event.key == config['keyboard']['switch draw mode']:
+            self._btnfct_draw_mode()
+        elif event.key == config['keyboard']['export mask']:
+            self._btnfct_export()
+        elif event.key == config['keyboard']['quit']:
+            self._btnfct_quit()
+        elif event.key == config['keyboard']['increase mask alpha']:
+            self._btnfct_alpha_plus()
+        elif event.key == config['keyboard']['decrease mask alpha']:
+            self._btnfct_alpha_minus()
+        elif event.key == config['keyboard']['increase brightness']:
+            self._btnfct_brightness_inc()
+        elif event.key == config['keyboard']['decrease brightness']:
+            self._btnfct_brightness_dec()
+        elif event.key == config['keyboard']['switch filter']:
+            self._btnfct_switch_filter()
+        elif event.key == config['keyboard']['enable / disable mask']:
+            self._btnfct_show_mask()
+        elif event.key == "h":
+            self._btnfct_help()
+        elif event.key == config['keyboard']['reset zoom']:
+            gui.ax_lims = None
         else:
             update = False
 
         if update:
             self.reset()
+            try:
+                gui.trigger_tool('zoom', if_up=True)
+                gui.trigger_tool('pan', if_up=True)
+            except Exception as e:
+                print(e)
+                warnings.warn("No zoom and pan tools available. "
+                              "Try setting different backend in config",
+                              UserWarning)
             gui.update_plots()
 
     def connect(self):
@@ -493,13 +539,42 @@ class Controller:
 
 
 def main():
+    global data, gui, controller, config
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               'config.json')
+    try:
+        with open(config_path, 'r') as jf:
+            config = json.load(jf)
+        print('using existing config')
+    except FileNotFoundError:
+        with open(config_path.replace('config.json',
+                                      'config_template.json'), 'r') as jf:
+            config = json.load(jf)
+        with open(config_path, 'w') as jf:
+            json.dump(config, jf)
+        print('using template config')
+
+    if config['backend']:
+        mpl.use(config['backend'])
+
+    plt.rcParams['toolbar'] = 'toolmanager'
+
+    for k in plt.rcParams.keys():
+        if 'keymap' in k:
+            for v in plt.rcParams[k]:
+                plt.rcParams[k].remove(v)
+
+    plt.rcParams['keymap.zoom'].append(config['keyboard']['toggle zoom'])
+    plt.rcParams['keymap.pan'].append(config['keyboard']['toggle pan'])
+
+    plt.rcParams['axes.ymargin'] = 0
+
     parser = argparse.ArgumentParser()
     parser.add_argument('file', type=str, help='nifti file')
     parser.add_argument('-m', '--mask', type=str, help='initial mask file',
                         default='auto')
     args = parser.parse_args()
 
-    global data, gui, controller
     data = Data(args.file, args.mask)
     gui = GUI()
     controller = Controller()
@@ -508,5 +583,5 @@ def main():
 
 
 if __name__ == '__main__':
-    global data, gui, controller
+    global data, gui, controller, config
     main()

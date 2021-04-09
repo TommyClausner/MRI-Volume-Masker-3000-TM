@@ -1,0 +1,24 @@
+{
+  "backend": "TkAgg",
+  "start draw mode": "remove",
+  "start filter": "no filter",
+  "start slice": false,
+  "keyboard": {
+    "set slice": "enter",
+    "slice up": "up",
+    "slice down": "down",
+    "increase brightness": "right",
+    "decrease brightness": "left",
+    "increase mask alpha": "+",
+    "decrease mask alpha": "-",
+    "enable / disable mask": "m",
+    "switch draw mode": "d",
+    "switch view plane": "v",
+    "switch filter": "f",
+    "toggle pan": "p",
+    "toggle zoom": "z",
+    "reset zoom": "escape",
+    "export mask": "e",
+    "quit": "q"
+  }
+}
