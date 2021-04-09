@@ -31,7 +31,9 @@ class GUI:
     """
     c_max = 0.7
     mask_alpha = 0.2
+    mask_alpha_backup = None
     show_mask = True
+    mask_cmap = 'RdYlGn'
 
     status_text = ''
     status_font = {'color': 'white', 'verticalalignment': 'center',
@@ -270,6 +272,15 @@ class GUI:
         else:
             self.fig.canvas.manager.toolmanager.trigger_tool(tool)
 
+    def binary_mask(self, binary_mask):
+        self.mask_cmap = 'RdYlGn' if not binary_mask else 'binary_r'
+        self.mask_main_img.set_cmap(self.mask_cmap)
+        self.mask_upper_img.set_cmap(self.mask_cmap)
+        self.mask_lower_img.set_cmap(self.mask_cmap)
+        if self.mask_alpha < 1:
+            self.mask_alpha_backup = self.mask_alpha + 0
+        self.mask_alpha = self.mask_alpha_backup if not binary_mask else 1
+
 
 class Data:
     """Data used for Tommy's Volume Masker 3000 TM.
@@ -438,6 +449,7 @@ class Controller:
     xys = []
     lasso = []
     ind = []
+    binary_mask = False
 
     def __init__(self):
         """Constructor method
@@ -600,6 +612,10 @@ class Controller:
         gui.mask_upper_img.set_visible(gui.show_mask)
         gui.mask_lower_img.set_visible(gui.show_mask)
 
+    def _btnfct_binary_mask(self):
+        self.binary_mask = not self.binary_mask
+        gui.binary_mask(self.binary_mask)
+
     def _btnfct_new(self):
         """Callback for new file selection dialog
         """
@@ -653,6 +669,8 @@ class Controller:
             self._btnfct_brightness_dec()
         elif event.key == config['keyboard']['switch filter']:
             self._btnfct_switch_filter()
+        elif event.key == config['keyboard']['binary mask view']:
+            self._btnfct_binary_mask()
         elif event.key == config['keyboard']['enable / disable mask']:
             self._btnfct_show_mask()
         elif event.key == config['keyboard']['set slice']:
