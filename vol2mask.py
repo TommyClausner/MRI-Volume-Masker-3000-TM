@@ -472,7 +472,7 @@ class Controller:
         """
         path = Path(verts)
         self.xy_compute()
-        self.ind = path.contains_points(self.xys, radius=1)
+        self.ind = path.contains_points(self.xys, radius=-1)
         self.selected.flat[self.ind] = 1 if self.draw_mode == 'add' else 0
         gui.update_plots()
 
