@@ -166,13 +166,13 @@ class GUI:
             return img
 
         # apply filters and update axes limits
-        filter = controller.filter['filter'][
+        img_filter = controller.filter['filter'][
             controller.filter['counter'] % len(controller.filter['name'])]
         filter_args = controller.filter['args'][
             controller.filter['counter'] % len(controller.filter['name'])]
 
-        if filter is not None:
-            new_data = filter(new_data, *filter_args)
+        if img_filter is not None:
+            new_data = img_filter(new_data, *filter_args)
 
         # central block with mask
         self.main_img = _set_data(self.main_img,
