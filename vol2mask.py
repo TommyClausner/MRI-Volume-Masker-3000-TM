@@ -301,7 +301,7 @@ class Data:
         If path to nifti file, this file will be used as a mask.
     :type make_mask: str
     """
-    axes_swaps = []
+    axes_swaps = [(2, 0)]
     mask = []
 
     def __init__(self, volume_path, make_mask='auto'):
@@ -324,21 +324,24 @@ class Data:
         if self.volume.ndim > 3:
             self.volume = self.volume[:, :, :, 0]
 
-        # default view plane for the use case for which this was programmed
-        self.volume = self.volume.swapaxes(2, 0)
+        self.load_mask(make_mask)
 
         if self.slice is None:
-            self.slice = int(self.volume.shape[0] / 2)
-
-        # keep track of how often axes have been swapped (reversed for export)
-        self.axes_swaps.append((2, 0))
+            self.slice = int(self.volume.shape[2] / 2)
 
         self.affine = img.affine.copy()
         self.header = img.header.copy()
 
         self.save_path = os.path.join(path, '_'.join(['m', filename]))
 
-        self.load_mask(make_mask)
+    def swapaxes(self, raw_data, reversed_swap=False):
+        if reversed_swap:
+            for so in self.axes_swaps[::-1]:
+                raw_data = raw_data.swapaxes(*so)
+        else:
+            for so in self.axes_swaps:
+                raw_data = raw_data.swapaxes(*so)
+        return raw_data
 
     def load_mask(self, make_mask):
         if make_mask is None:
@@ -355,13 +358,10 @@ class Data:
                 # empty mask
                 self.mask = np.zeros_like(self.volume)
             else:
-                # use stored mask (provided as input argument using -m)
                 print('reading mask file...')
 
                 # same initial axes swap as for volume
-                self.set_mask(nib.load(make_mask).get_fdata())
-                for swap in self.axes_swaps:
-                    self.set_mask(self.get_mask().swapaxes(*swap))
+                self.mask = nib.load(make_mask).get_fdata()
                 print('done.')
 
     def get_data(self, first_dim_ind=None):
@@ -373,8 +373,8 @@ class Data:
         :rtype: ndarray
         """
         if first_dim_ind is not None:
-            return self.volume[first_dim_ind, :, :]
-        return self.volume
+            return self.swapaxes(self.volume)[first_dim_ind, :, :]
+        return self.swapaxes(self.volume)
 
     def get_mask(self, first_dim_ind=None):
         """Return 3D mask data.
@@ -385,43 +385,12 @@ class Data:
         :rtype: ndarray
         """
         if first_dim_ind is not None:
-            return self.mask[first_dim_ind, :, :]
-        return self.mask
-
-    def set_data(self, data, first_dim_ind=None):
-        """Set 3D volume data.
-
-        :param data: 3D input data.
-        :type: ndarray
-        :param first_dim_ind: Which slice of the first dimension.
-        :type: None|int, optional
-        """
-        if first_dim_ind is not None:
-            self.volume[first_dim_ind, :, :] = data
-        else:
-            self.volume = data
-
-    def set_mask(self, mask, first_dim_ind=None):
-        """Set 3D mask data.
-
-        :param data: 3D input mask.
-        :type: ndarray
-        :param first_dim_ind: Which slice of the first dimension.
-        :type: None|int, optional
-        """
-        if first_dim_ind is not None:
-            self.mask[first_dim_ind, :, :] = mask
-        else:
-            self.mask = mask
+            return self.swapaxes(self.mask)[first_dim_ind, :, :]
+        return self.swapaxes(self.mask)
 
     def switch_view_plane(self):
         """Switch view plane. Swaps data axes.
         """
-        self.set_data(self.get_data().swapaxes(0, 2))
-        self.set_mask(self.get_mask().swapaxes(0, 2))
-        self.set_data(self.get_data().swapaxes(1, 2))
-        self.set_mask(self.get_mask().swapaxes(1, 2))
-
         self.axes_swaps.append((0, 2))
         self.axes_swaps.append((1, 2))
 
@@ -431,31 +400,9 @@ class Data:
 
         # make nifti using information from volume and store
         print('saving...')
-        out = nib.Nifti1Image(self._reversed_mask_swap().astype(bool),
+        out = nib.Nifti1Image(self.mask.astype(bool),
                               affine=self.affine, header=self.header)
         nib.save(out, self.save_path)
-
-    def _reversed_mask_swap(self):
-        """Like :func:`vol2mask.Data.get_mask`, but in original orientation.
-
-        :return: 3D mask data in original orientation.
-        :rtype: ndarray
-        """
-        data_mask = self.mask + 0
-        for so in self.axes_swaps[::-1]:
-            data_mask = data_mask.swapaxes(*so)
-        return data_mask
-
-    def _reversed_data_swap(self):
-        """Like :func:`vol2mask.Data.get_data`, but in original orientation.
-
-        :return: 3D volume data in original orientation.
-        :rtype: ndarray
-        """
-        data_volume = self.volume + 0
-        for so in self.axes_swaps[::-1]:
-            data_volume = data_volume.swapaxes(*so)
-        return data_volume
 
 
 class Controller:
@@ -473,7 +420,7 @@ class Controller:
         # link gui and data
         self.canvas = gui.main_ax.figure.canvas
         self.Npts = len(self.xys)
-        self.selected = data.get_mask()[data.slice, :, :]
+        self.selected = data.get_mask(data.slice)
 
         # set defaults
         self.draw_mode = config['start draw mode']
@@ -521,15 +468,16 @@ class Controller:
         """
         self.xy_compute()
         self.ind = []
-        self.selected = data.get_mask()[data.slice, :, :].flatten()
+        self.selected = data.get_mask(data.slice).flatten()
         self.lasso = LassoSelector(gui.main_ax, onselect=self.onselect)
 
     def _btnfct_set_slice(self):
         """Callback for set slice button
         """
-        data.set_mask(
-            controller.selected.reshape(data.get_mask(data.slice).shape),
-            first_dim_ind=data.slice)
+        mask = data.get_mask()
+        mask_slice = controller.selected.reshape(mask[data.slice, :, :].shape)
+        mask[data.slice] = mask_slice
+        data.mask = data.swapaxes(mask, reversed_swap=True)
         controller.disconnect()
         gui.update_popup_text('Slice set', 0.25)
 
@@ -537,8 +485,8 @@ class Controller:
         """Callback for next slice button
         """
         data.slice += 1
-        if data.slice >= data.volume.shape[0]:
-            data.slice = data.volume.shape[0] - 1
+        if data.slice >= data.get_data().shape[0]:
+            data.slice = data.get_data().shape[0] - 1
 
     def _btnfct_prev_slice(self):
         """Callback for previous slice button
@@ -643,7 +591,7 @@ class Controller:
                 initialdir=os.path.dirname(os.path.abspath(data.volume_path)))
             root.destroy()
             if len(fname) > 0:
-                data = Data(fname)
+                data = Data(fname, 'auto')
                 return True, None
         else:
             gui.update_popup_text('Can\'t launch file selection dialog.\n'
