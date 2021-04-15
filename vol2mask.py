@@ -361,7 +361,7 @@ class Data:
                 # same initial axes swap as for volume
                 self.set_mask(nib.load(make_mask).get_fdata())
                 for swap in self.axes_swaps:
-                    self.mask = self.mask.swapaxes(*swap)
+                    self.set_mask(self.mask.swapaxes(*swap))
                 print('done.')
 
     def get_data(self, first_dim_ind=None):
@@ -665,7 +665,6 @@ class Controller:
         else:
             gui.update_popup_text('Can\'t launch file selection dialog.\n'
                                   'Change matplotlib backend to TkAgg', 2)
-        controller.selected = data.get_mask()[data.slice, :, :].flatten()
 
     def button_handler(self, event):
         """Handles button presses
