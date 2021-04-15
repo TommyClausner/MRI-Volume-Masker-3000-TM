@@ -220,7 +220,12 @@ class GUI:
                                         tmp_alpha)
 
         # Update figure title text
-        self.status_text = 'slice: {} | draw mode: {} | filter: {} | h help'
+        max_path = 100  # maximum last 100 characters of path is displayed
+        len_path = len(data.volume_path)
+        self.status_text = '' if len_path < max_path else '...'
+        self.status_text += data.volume_path[len_path - max_path:]
+        self.status_text += '\n\n'
+        self.status_text += 'slice: {} | draw mode: {} | filter: {} | h help'
         self.status_text = self.status_text.format(
             data.slice,
             controller.draw_mode,
