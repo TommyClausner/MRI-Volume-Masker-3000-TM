@@ -22,6 +22,6 @@
     "export mask": "e",
     "quit": "q",
     "load file":  "o",
-    "load mask":  "O"
+    "load mask":  "ctrl+o"
   }
 }
