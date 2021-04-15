@@ -220,10 +220,14 @@ class GUI:
                                         tmp_alpha)
 
         # Update figure title text
-        max_path = 100  # maximum last 100 characters of path is displayed
+        max_path = 69  # maximum last 69 characters of path is displayed
         len_path = len(data.volume_path)
-        self.status_text = '' if len_path < max_path else '...'
-        self.status_text += data.volume_path[len_path - max_path:]
+        sel_chars = len_path - max_path
+        if sel_chars < 0:
+            sel_chars = 0
+        self.status_text = 'file: '
+        self.status_text += '' if len_path < max_path else '...'
+        self.status_text += data.volume_path[sel_chars:]
         self.status_text += '\n\n'
         self.status_text += 'slice: {} | draw mode: {} | filter: {} | h help'
         self.status_text = self.status_text.format(
