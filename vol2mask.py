@@ -665,6 +665,7 @@ class Controller:
         else:
             gui.update_popup_text('Can\'t launch file selection dialog.\n'
                                   'Change matplotlib backend to TkAgg', 2)
+        controller.selected = data.get_mask()[data.slice, :, :].flatten()
 
     def button_handler(self, event):
         """Handles button presses
