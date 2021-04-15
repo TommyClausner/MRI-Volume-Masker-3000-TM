@@ -33,15 +33,13 @@ class GUI:
     mask_alpha = 0.2
     mask_alpha_backup = None
     show_mask = True
-    mask_cmap = 'RdYlGn'
 
     status_text = ''
-    status_font = {'color': 'white', 'verticalalignment': 'center',
+    status_font = {'verticalalignment': 'center',
                    'horizontalalignment': 'left', 'size': 8}
 
     info_text = ''
-    info_text_font = {'color': 'white', 'horizontalalignment': 'center',
-                      'size': 16}
+    info_text_font = {'horizontalalignment': 'center', 'size': 16}
 
     cid = None
 
@@ -50,6 +48,10 @@ class GUI:
     def __init__(self):
         """Constructor method
         """
+
+        self.status_font['color'] = config["info text color"]
+        self.info_text_font['color'] = config["popup text color"]
+        self.mask_cmap = config["mask colormap"]
 
         # make main window
         self.fig = plt.figure(facecolor=(0.22, 0.22, 0.22))
@@ -64,20 +66,25 @@ class GUI:
         # main drawing window
         self.main_ax = self.fig.add_subplot(gs[:, :7])
         self.main_ax.axis('off')
-        self.main_img = self.main_ax.imshow(data.get_data(data.slice), "gray")
+        self.main_img = self.main_ax.imshow(data.get_data(data.slice),
+                                            config["data colormap"])
         self.mask_main_img = self.main_ax.imshow(data.get_mask(data.slice),
-                                                 'RdYlGn')
+                                                 self.mask_cmap)
         # upper right window
         self.upper_ax = self.fig.add_subplot(gs[:1, 7:])
         self.upper_ax.axis('off')
-        self.upper_img = self.upper_ax.imshow(np.empty((2, 2)), "gray")
-        self.mask_upper_img = self.upper_ax.imshow(np.empty((2, 2)), 'RdYlGn')
+        self.upper_img = self.upper_ax.imshow(np.empty((2, 2)),
+                                              config["data colormap"])
+        self.mask_upper_img = self.upper_ax.imshow(np.empty((2, 2)),
+                                                   self.mask_cmap)
 
         # lower right window
         self.lower_ax = self.fig.add_subplot(gs[1:, 7:])
         self.lower_ax.axis('off')
-        self.lower_img = self.lower_ax.imshow(np.empty((2, 2)), "gray")
-        self.mask_lower_img = self.lower_ax.imshow(np.empty((2, 2)), 'RdYlGn')
+        self.lower_img = self.lower_ax.imshow(np.empty((2, 2)),
+                                              config["data colormap"])
+        self.mask_lower_img = self.lower_ax.imshow(np.empty((2, 2)),
+                                                   self.mask_cmap)
 
         # info text object
         self.status = self.main_ax.set_title(self.status_text,
@@ -282,7 +289,8 @@ class GUI:
             self.fig.canvas.manager.toolmanager.trigger_tool(tool)
 
     def binary_mask(self, binary_mask):
-        self.mask_cmap = 'RdYlGn' if not binary_mask else 'binary_r'
+        cmap = config["mask colormap"] if not binary_mask else 'binary_r'
+        self.mask_cmap = cmap
         self.mask_main_img.set_cmap(self.mask_cmap)
         self.mask_upper_img.set_cmap(self.mask_cmap)
         self.mask_lower_img.set_cmap(self.mask_cmap)
