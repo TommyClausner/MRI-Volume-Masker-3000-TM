@@ -293,6 +293,7 @@ class Data:
     :type make_mask: str
     """
     axes_swaps = []
+    mask = []
 
     def __init__(self, volume_path, make_mask='auto'):
         """Constructor method
@@ -328,6 +329,9 @@ class Data:
 
         self.save_path = os.path.join(path, '_'.join(['m', filename]))
 
+        self.load_mask(make_mask)
+
+    def load_mask(self, make_mask):
         if make_mask is None:
             # empty mask
             self.mask = np.zeros_like(self.volume)
@@ -346,7 +350,9 @@ class Data:
                 print('reading mask file...')
 
                 # same initial axes swap as for volume
-                self.mask = nib.load(make_mask).get_fdata().swapaxes(2, 0)
+                self.set_mask(nib.load(make_mask).get_fdata())
+                for swap in self.axes_swaps:
+                    self.mask = self.mask.swapaxes(*swap)
                 print('done.')
 
     def get_data(self, first_dim_ind=None):
@@ -616,7 +622,7 @@ class Controller:
         self.binary_mask = not self.binary_mask
         gui.binary_mask(self.binary_mask)
 
-    def _btnfct_new(self):
+    def _btnfct_new_file(self):
         """Callback for new file selection dialog
         """
         if mpl.get_backend() == 'TkAgg':
@@ -634,6 +640,23 @@ class Controller:
             gui.update_popup_text('Can\'t launch file selection dialog.\n'
                                   'Change matplotlib backend to TkAgg', 2)
         return False, gui.ax_lims
+
+    def _btnfct_new_mask(self):
+        """Callback for new file selection dialog
+        """
+        if mpl.get_backend() == 'TkAgg':
+            root = Tk()
+            root.withdraw()
+            fname = askopenfilename(
+                title="Select (f)MRI image mask",
+                initialdir=os.path.dirname(os.path.abspath(data.volume_path)))
+            root.destroy()
+            if len(fname) > 0:
+                print(fname)
+                data.load_mask(fname)
+        else:
+            gui.update_popup_text('Can\'t launch file selection dialog.\n'
+                                  'Change matplotlib backend to TkAgg', 2)
 
     def button_handler(self, event):
         """Handles button presses
@@ -676,8 +699,11 @@ class Controller:
         elif event.key == config['keyboard']['set slice']:
             self._btnfct_set_slice()
             reset = True
-        elif event.key == config['keyboard']['new file']:
-            reset, gui.ax_lims = self._btnfct_new()
+        elif event.key == config['keyboard']['load file']:
+            reset, gui.ax_lims = self._btnfct_new_file()
+        elif event.key == config['keyboard']['load mask']:
+            self._btnfct_new_mask()
+            reset = True
         elif event.key == config['keyboard']['reset zoom']:
             gui.ax_lims = None
         else:
@@ -704,7 +730,7 @@ class Controller:
     def connect_gui(self):
         """Connect :class:`vol2mask.GUI` to  :class:`vol2mask.Controller`
         """
-        gui.cid = gui.fig.canvas.mpl_connect("key_press_event",
+        gui.cid = gui.fig.canvas.mpl_connect("key_release_event",
                                              self.button_handler)
         gui.update_plots()
 
