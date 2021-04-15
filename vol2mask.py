@@ -652,7 +652,6 @@ class Controller:
                 initialdir=os.path.dirname(os.path.abspath(data.volume_path)))
             root.destroy()
             if len(fname) > 0:
-                print(fname)
                 data.load_mask(fname)
         else:
             gui.update_popup_text('Can\'t launch file selection dialog.\n'
