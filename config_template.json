@@ -1,5 +1,5 @@
 {
-  "backend": "TkAgg",
+  "backend": "WxAgg",
   "start draw mode": "remove",
   "start filter": "no filter",
   "start slice": false,

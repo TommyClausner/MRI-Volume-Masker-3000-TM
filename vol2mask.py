@@ -12,7 +12,7 @@ import argparse
 import json
 import os
 import sys
-from tkinter import Tk     # from tkinter import Tk for Python 3.x
+from tkinter import Tk  # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askopenfilename
 import warnings
 
@@ -35,7 +35,7 @@ class GUI:
     show_mask = True
 
     status_text = ''
-    status_font = {'verticalalignment': 'center',
+    status_font = {'verticalalignment': 'bottom',
                    'horizontalalignment': 'left', 'size': 8}
 
     info_text = ''
@@ -44,6 +44,10 @@ class GUI:
     cid = None
 
     ax_lims = None
+
+    xys = []
+    lasso = []
+    ind = []
 
     def __init__(self):
         """Constructor method
@@ -63,13 +67,17 @@ class GUI:
         # divide into parts
         gs = self.fig.add_gridspec(2, 10)
 
+        self.selected = controller.get_view_mask(controller.slice)
+
         # main drawing window
         self.main_ax = self.fig.add_subplot(gs[:, :7])
         self.main_ax.axis('off')
-        self.main_img = self.main_ax.imshow(data.get_data(data.slice),
-                                            config["data colormap"])
-        self.mask_main_img = self.main_ax.imshow(data.get_mask(data.slice),
-                                                 self.mask_cmap)
+        self.main_img = self.main_ax.imshow(
+            controller.get_view_data(controller.slice),
+            config["data colormap"])
+        self.mask_main_img = self.main_ax.imshow(
+            controller.get_view_mask(controller.slice),
+            self.mask_cmap)
         # upper right window
         self.upper_ax = self.fig.add_subplot(gs[:1, 7:])
         self.upper_ax.axis('off')
@@ -88,8 +96,8 @@ class GUI:
 
         # info text object
         self.status = self.main_ax.set_title(self.status_text,
-                                              fontdict=self.status_font,
-                                              loc='left')
+                                             fontdict=self.status_font,
+                                             loc='left')
 
         # popup status change text
         self.popup_info = self.main_ax.text(0.5, 0.5, self.info_text,
@@ -108,6 +116,32 @@ class GUI:
                           UserWarning)
         self.main_ax.callbacks.connect('xlim_changed', self.on_xlims_change)
         self.main_ax.callbacks.connect('ylim_changed', self.on_ylims_change)
+
+        self.filter = {
+            'name': ['no filter', 'sobel', 'gauss'],
+            'filter': [None,
+                       ndimage.sobel,
+                       ndimage.gaussian_filter],
+            'args': [None,
+                     [],
+                     [2 * data.header.get_zooms()[0]]]
+        }
+
+        self.filter.update({'counter': [ind
+                                        for ind, n in
+                                        enumerate(self.filter['name'])
+                                        if n == config['start filter']][0]})
+
+        self.draw_mode = config['start draw mode']
+
+        # disable cursor data
+        self.main_ax.format_coord = lambda x, y: ''
+        self.upper_ax.format_coord = lambda x, y: ''
+        self.lower_ax.format_coord = lambda x, y: ''
+
+        self.mask_main_img.format_cursor_data = lambda x: ''
+        self.mask_upper_img.format_cursor_data = lambda x: ''
+        self.mask_lower_img.format_cursor_data = lambda x: ''
 
     def update_img_extent(self, img):
         """Updates image objects by replacing their extent value to fit data in
@@ -141,8 +175,10 @@ class GUI:
         :type ax_lims: None|list, optional
         """
         if ax_lims is None:
-            self.main_ax.set_xlim([0, data.get_data(data.slice).shape[1]])
-            self.main_ax.set_ylim([data.get_data(data.slice).shape[0], 0])
+            self.main_ax.set_xlim(
+                [0, controller.get_view_data(controller.slice).shape[1]])
+            self.main_ax.set_ylim(
+                [controller.get_view_data(controller.slice).shape[0], 0])
 
     def update_plots(self, new_data=None, new_mask=None, first_dim_ind=None):
         """Updates all plots.
@@ -157,13 +193,13 @@ class GUI:
         :return:
         """
         if new_data is None:
-            new_data = data.get_data()
+            new_data = controller.get_view_data()
 
         if new_mask is None:
-            new_mask = data.get_mask()
+            new_mask = controller.get_view_mask()
 
         if first_dim_ind is None:
-            first_dim_ind = data.slice
+            first_dim_ind = controller.slice
 
         # function to actually set the data
         def _set_data(img, data, clim=None, alpha=None):
@@ -175,10 +211,10 @@ class GUI:
             return img
 
         # apply filters and update axes limits
-        img_filter = controller.filter['filter'][
-            controller.filter['counter'] % len(controller.filter['name'])]
-        filter_args = controller.filter['args'][
-            controller.filter['counter'] % len(controller.filter['name'])]
+        img_filter = self.filter['filter'][
+            self.filter['counter'] % len(self.filter['name'])]
+        filter_args = self.filter['args'][
+            self.filter['counter'] % len(self.filter['name'])]
 
         if img_filter is not None:
             new_data = img_filter(new_data, *filter_args)
@@ -189,7 +225,7 @@ class GUI:
                                   (0, self.c_max))
 
         self.mask_main_img = _set_data(self.mask_main_img,
-                                       controller.selected.reshape(
+                                       gui.selected.reshape(
                                            new_data[first_dim_ind, :, :].shape
                                        ),
                                        (0, 1),
@@ -238,10 +274,10 @@ class GUI:
         self.status_text += '\n\n'
         self.status_text += 'slice: {} | draw mode: {} | filter: {} | h help'
         self.status_text = self.status_text.format(
-            data.slice,
-            controller.draw_mode,
-            controller.filter['name'][controller.filter['counter'] %
-                                      len(controller.filter['name'])])
+            controller.slice,
+            self.draw_mode,
+            self.filter['name'][self.filter['counter'] %
+                                len(self.filter['name'])])
         self.status.set_text(self.status_text)
         self.fig.canvas.draw_idle()
 
@@ -254,11 +290,11 @@ class GUI:
         :type delay: float, optional
         """
         self.popup_info.set_text(info)
-        self.fig.canvas.draw()
+        self.fig.canvas.draw_idle()
         if delay > 0:
             plt.pause(delay)
         self.popup_info.set_text('')
-        self.fig.canvas.draw()
+        self.fig.canvas.draw_idle()
 
     def on_xlims_change(self, _):
         """Updates axes limits on change (e.g. zoom). Wrapper function of
@@ -298,6 +334,45 @@ class GUI:
             self.mask_alpha_backup = self.mask_alpha + 0
         self.mask_alpha = self.mask_alpha_backup if not binary_mask else 1
 
+    def onselect(self, verts):
+        """Callback function for lasso.
+        """
+        path = Path(verts)
+        self.xy_compute()
+        self.ind = path.contains_points(self.xys, radius=-1)
+        self.selected.flat[self.ind] = 1 if self.draw_mode == 'add' else 0
+        gui.update_plots()
+
+    def disconnect(self):
+        """Remove lasso.
+        """
+        self.lasso.disconnect_events()
+        gui.update_plots()
+
+    def xy_compute(self):
+        """Transform image data into index data (for selection).
+        """
+        xv, yv = np.meshgrid(
+            np.arange(controller.get_view_data(controller.slice).shape[1]),
+            np.arange(controller.get_view_data(controller.slice).shape[0]))
+        self.xys = np.vstack((xv.flatten(), yv.flatten())).T
+
+    def reset_selection(self):
+        """Reset lasso selection
+        """
+        self.xy_compute()
+        self.ind = []
+        self.selected = controller.get_view_mask(controller.slice).flatten()
+        self.lasso = LassoSelector(gui.main_ax, onselect=self.onselect)
+
+    def connect(self, button_handler):
+        """Connect :class:`vol2mask.GUI` to  :class:`vol2mask.Controller`
+        """
+        self.cid = gui.fig.canvas.mpl_connect("key_release_event",
+                                              button_handler)
+        self.reset_selection()
+        self.update_plots()
+
 
 class Data:
     """Data used for Tommy's Volume Masker 3000 TM.
@@ -309,13 +384,22 @@ class Data:
         If path to nifti file, this file will be used as a mask.
     :type make_mask: str
     """
-    axes_swaps = [(2, 0)]
     mask = []
+    volume = []
+    affine = []
+    header = []
+    save_path = ''
+    volume_path = ''
 
     def __init__(self, volume_path, make_mask='auto'):
         """Constructor method
         """
-        self.volume_path = volume_path
+        self.load_data(volume_path)
+
+        self.load_mask(make_mask)
+
+    def load_data(self, path):
+        self.volume_path = path
         # load volume and normalize
         print('reading nifti file...')
         path = os.path.dirname(self.volume_path)
@@ -326,30 +410,14 @@ class Data:
         self.volume -= self.volume.min()
         self.volume /= self.volume.max()
 
-        self.slice = None if not config['start slice'] else config['start slice']
-
         # in case of 4D volumes only extract spatial dims
         if self.volume.ndim > 3:
             self.volume = self.volume[:, :, :, 0]
-
-        self.load_mask(make_mask)
-
-        if self.slice is None:
-            self.slice = int(self.volume.shape[2] / 2)
 
         self.affine = img.affine.copy()
         self.header = img.header.copy()
 
         self.save_path = os.path.join(path, '_'.join(['m', filename]))
-
-    def swapaxes(self, raw_data, reversed_swap=False):
-        if reversed_swap:
-            for so in self.axes_swaps[::-1]:
-                raw_data = raw_data.swapaxes(*so)
-        else:
-            for so in self.axes_swaps:
-                raw_data = raw_data.swapaxes(*so)
-        return raw_data
 
     def load_mask(self, make_mask):
         if make_mask is None:
@@ -372,36 +440,6 @@ class Data:
                 self.mask = nib.load(make_mask).get_fdata()
                 print('done.')
 
-    def get_data(self, first_dim_ind=None):
-        """Return 3D volume data.
-
-        :param first_dim_ind: Which slice of the first dimension.
-        :type: None|int, optional
-        :return: 3D volume data.
-        :rtype: ndarray
-        """
-        if first_dim_ind is not None:
-            return self.swapaxes(self.volume)[first_dim_ind, :, :]
-        return self.swapaxes(self.volume)
-
-    def get_mask(self, first_dim_ind=None):
-        """Return 3D mask data.
-
-        :param first_dim_ind: Which slice of the first dimension.
-        :type: None|int, optional
-        :return: 3D mask data.
-        :rtype: ndarray
-        """
-        if first_dim_ind is not None:
-            return self.swapaxes(self.mask)[first_dim_ind, :, :]
-        return self.swapaxes(self.mask)
-
-    def switch_view_plane(self):
-        """Switch view plane. Swaps data axes.
-        """
-        self.axes_swaps.append((0, 2))
-        self.axes_swaps.append((1, 2))
-
     def export_mask(self):
         """Write mask to file.
         """
@@ -416,211 +454,50 @@ class Data:
 class Controller:
     """Controller for Tommy's Volume Masker 3000 TM.
     """
-    xys = []
-    lasso = []
-    ind = []
     binary_mask = False
+    axes_swaps = [(2, 0)]
 
     def __init__(self):
         """Constructor method
         """
+        self.slice = None if not config['start slice'] else config[
+            'start slice']
 
-        # link gui and data
-        self.canvas = gui.main_ax.figure.canvas
-        self.Npts = len(self.xys)
-        self.selected = data.get_mask(data.slice)
+        if self.slice is None:
+            self.slice = int(data.volume.shape[2] / 2)
 
-        # set defaults
-        self.draw_mode = config['start draw mode']
-
-        self.filter = {
-            'name': ['no filter', 'sobel', 'gauss'],
-            'filter': [None,
-                       ndimage.sobel,
-                       ndimage.gaussian_filter],
-            'args': [None,
-                     [],
-                     [2 * data.header.get_zooms()[0]]]
-        }
-
-        self.filter.update({'counter': [ind
-                                        for ind, n in
-                                        enumerate(self.filter['name'])
-                                        if n == config['start filter']][0]})
-        self.reset_selection()
-
-    def onselect(self, verts):
-        """Callback function for lasso.
-        """
-        path = Path(verts)
-        self.xy_compute()
-        self.ind = path.contains_points(self.xys, radius=-1)
-        self.selected.flat[self.ind] = 1 if self.draw_mode == 'add' else 0
-        gui.update_plots()
-
-    def disconnect(self):
-        """Remove lasso.
-        """
-        self.lasso.disconnect_events()
-        gui.update_plots()
-
-    def xy_compute(self):
-        """Transform image data into index data (for selection).
-        """
-        xv, yv = np.meshgrid(np.arange(data.get_data(data.slice).shape[1]),
-                             np.arange(data.get_data(data.slice).shape[0]))
-        self.xys = np.vstack((xv.flatten(), yv.flatten())).T
-
-    def reset_selection(self):
-        """Reset lasso selection
-        """
-        self.xy_compute()
-        self.ind = []
-        self.selected = data.get_mask(data.slice).flatten()
-        self.lasso = LassoSelector(gui.main_ax, onselect=self.onselect)
-
-    def _btnfct_set_slice(self):
-        """Callback for set slice button
-        """
-        mask = data.get_mask()
-        mask_slice = controller.selected.reshape(mask[data.slice, :, :].shape)
-        mask[data.slice] = mask_slice
-        data.mask = data.swapaxes(mask, reversed_swap=True)
-        controller.disconnect()
-        gui.update_popup_text('Slice set', 0.25)
-
-    def _btnfct_next_slice(self):
-        """Callback for next slice button
-        """
-        data.slice += 1
-        if data.slice >= data.get_data().shape[0]:
-            data.slice = data.get_data().shape[0] - 1
-
-    def _btnfct_prev_slice(self):
-        """Callback for previous slice button
-        """
-        data.slice -= 1
-        if data.slice < 0:
-            data.slice = 0
-
-    def _btnfct_switch_plane(self):
-        """Callback for switch view plane button
-        """
-        data.switch_view_plane()
-        data.slice = int(data.get_data().shape[0] / 2)
-        gui.ax_lims = None
-
-    def _btnfct_draw_mode(self):
-        """Callback for switch draw mode button
-        """
-        self.draw_mode = 'remove' if self.draw_mode == 'add' else 'add'
-        gui.update_popup_text(self.draw_mode, 0.25)
-
-    def _btnfct_export(self):
-        """Callback for export button
-        """
-        data.export_mask()
-        gui.update_popup_text('Data successfully exported', 0.25)
-
-    def _btnfct_quit(self):
-        """Callback for quit button
-        """
-        gui.update_popup_text('Later...', 0.25)
-        plt.close(gui.fig)
-        sys.exit()
-
-    def _btnfct_alpha_plus(self):
-        """Callback for increasing mask alpha button
-        """
-        gui.mask_alpha -= 0.05
-        if gui.mask_alpha < 0:
-            gui.mask_alpha = 0
-
-    def _btnfct_alpha_minus(self):
-        """Callback for decreasing mask alpha button
-        """
-        gui.mask_alpha += 0.05
-        if gui.mask_alpha > 1:
-            gui.mask_alpha = 1
-
-    def _btnfct_brightness_inc(self):
-        """Callback for increasing image brightness button
-        """
-        gui.c_max -= 0.05
-        if gui.c_max < 0:
-            gui.c_max = 0
-
-    def _btnfct_brightness_dec(self):
-        """Callback for decreasing image brightness button
-        """
-        gui.c_max += 0.05
-        if gui.c_max > 1:
-            gui.c_max = 1
-
-    def _btnfct_switch_filter(self):
-        """Callback for switching filter button
-        """
-        self.filter['counter'] += 1
-        gui.update_popup_text(
-            self.filter['name'][
-                self.filter['counter'] % len(self.filter['name'])], 0.25)
-
-    def _btnfct_help(self):
-        """Callback for help button
-        """
-        print('\n################################################\n'
-              'Button mapping Tommy\'s MRI Volume Masker 3000 TM\n'
-              '################################################\n')
-        for k, v in config['keyboard'].items():
-            print(': '.join([k, v]))
-        gui.update_popup_text('see console output for help...', 1)
-
-    def _btnfct_show_mask(self):
-        """Callback for show / hide mask button
-        """
-        gui.show_mask = not gui.show_mask
-        gui.mask_main_img.set_visible(gui.show_mask)
-        gui.mask_upper_img.set_visible(gui.show_mask)
-        gui.mask_lower_img.set_visible(gui.show_mask)
-
-    def _btnfct_binary_mask(self):
-        self.binary_mask = not self.binary_mask
-        gui.binary_mask(self.binary_mask)
-
-    def _btnfct_new_file(self):
-        """Callback for new file selection dialog
-        """
-        if mpl.get_backend() == 'TkAgg':
-            global data
-            root = Tk()
-            root.withdraw()
-            fname = askopenfilename(
-                title="Select (f)MRI image data",
-                initialdir=os.path.dirname(os.path.abspath(data.volume_path)))
-            root.destroy()
-            if len(fname) > 0:
-                data = Data(fname, 'auto')
-                return True, None
+    def _swapaxes(self, raw_data, reversed_swap=False):
+        if reversed_swap:
+            for so in self.axes_swaps[::-1]:
+                raw_data = raw_data.swapaxes(*so)
         else:
-            gui.update_popup_text('Can\'t launch file selection dialog.\n'
-                                  'Change matplotlib backend to TkAgg', 2)
-        return False, gui.ax_lims
+            for so in self.axes_swaps:
+                raw_data = raw_data.swapaxes(*so)
+        return raw_data
 
-    def _btnfct_new_mask(self):
-        """Callback for new file selection dialog
+    def get_view_data(self, first_dim_ind=None):
+        """Return 3D volume data.
+
+        :param first_dim_ind: Which slice of the first dimension.
+        :type: None|int, optional
+        :return: 3D volume data.
+        :rtype: ndarray
         """
-        if mpl.get_backend() == 'TkAgg':
-            root = Tk()
-            root.withdraw()
-            fname = askopenfilename(
-                title="Select (f)MRI image mask",
-                initialdir=os.path.dirname(os.path.abspath(data.volume_path)))
-            root.destroy()
-            if len(fname) > 0:
-                data.load_mask(fname)
-        else:
-            gui.update_popup_text('Can\'t launch file selection dialog.\n'
-                                  'Change matplotlib backend to TkAgg', 2)
+        if first_dim_ind is not None:
+            return self._swapaxes(data.volume)[first_dim_ind, :, :]
+        return self._swapaxes(data.volume)
+
+    def get_view_mask(self, first_dim_ind=None):
+        """Return 3D mask data.
+
+        :param first_dim_ind: Which slice of the first dimension.
+        :type: None|int, optional
+        :return: 3D mask data.
+        :rtype: ndarray
+        """
+        if first_dim_ind is not None:
+            return self._swapaxes(data.mask)[first_dim_ind, :, :]
+        return self._swapaxes(data.mask)
 
     def button_handler(self, event):
         """Handles button presses
@@ -630,52 +507,149 @@ class Controller:
 
         # execute button specific function or just pass (update = False)
         if event.key == "h":
-            self._btnfct_help()
+
+            print('\n################################################\n'
+                  'Button mapping Tommy\'s MRI Volume Masker 3000 TM\n'
+                  '################################################\n')
+            for k, v in config['keyboard'].items():
+                print(': '.join([k, v]))
+            gui.update_popup_text('see console output for help...', 1)
+
         elif event.key == config['keyboard']['slice up']:
-            self._btnfct_next_slice()
+
+            self.slice += 1
+            if self.slice >= self.get_view_data().shape[0]:
+                self.slice = self.get_view_data().shape[0] - 1
             reset = True
+
         elif event.key == config['keyboard']['slice down']:
-            self._btnfct_prev_slice()
+
+            self.slice -= 1
+            if self.slice < 0:
+                self.slice = 0
             reset = True
+
         elif event.key == config['keyboard']['switch view plane']:
-            self._btnfct_switch_plane()
-            reset = True
-        elif event.key == config['keyboard']['switch draw mode']:
-            self._btnfct_draw_mode()
-        elif event.key == config['keyboard']['export mask']:
-            self._btnfct_export()
-        elif event.key == config['keyboard']['quit']:
-            self._btnfct_quit()
-        elif event.key == config['keyboard']['increase mask alpha']:
-            self._btnfct_alpha_plus()
-        elif event.key == config['keyboard']['decrease mask alpha']:
-            self._btnfct_alpha_minus()
-        elif event.key == config['keyboard']['increase brightness']:
-            self._btnfct_brightness_inc()
-        elif event.key == config['keyboard']['decrease brightness']:
-            self._btnfct_brightness_dec()
-        elif event.key == config['keyboard']['switch filter']:
-            self._btnfct_switch_filter()
-        elif event.key == config['keyboard']['binary mask view']:
-            self._btnfct_binary_mask()
-        elif event.key == config['keyboard']['enable / disable mask']:
-            self._btnfct_show_mask()
-        elif event.key == config['keyboard']['set slice']:
-            self._btnfct_set_slice()
-            reset = True
-        elif event.key == config['keyboard']['load file']:
-            reset, gui.ax_lims = self._btnfct_new_file()
-        elif event.key == config['keyboard']['load mask']:
-            self._btnfct_new_mask()
-            reset = True
-        elif event.key == config['keyboard']['reset zoom']:
+
+            self.axes_swaps.append((0, 2))
+            self.axes_swaps.append((1, 2))
+            self.slice = int(self.get_view_data().shape[0] / 2)
             gui.ax_lims = None
+            reset = True
+
+        elif event.key == config['keyboard']['switch draw mode']:
+
+            gui.draw_mode = 'remove' if gui.draw_mode == 'add' else 'add'
+            gui.update_popup_text(gui.draw_mode, 0.25)
+
+        elif event.key == config['keyboard']['export mask']:
+
+            data.export_mask()
+            gui.update_popup_text('Data successfully exported', 0.25)
+
+        elif event.key == config['keyboard']['quit']:
+
+            gui.update_popup_text('Later...', 0.25)
+            plt.close(gui.fig)
+            sys.exit()
+
+        elif event.key == config['keyboard']['increase mask alpha']:
+
+            gui.mask_alpha -= 0.05
+            if gui.mask_alpha < 0:
+                gui.mask_alpha = 0
+
+        elif event.key == config['keyboard']['decrease mask alpha']:
+
+            gui.mask_alpha += 0.05
+            if gui.mask_alpha > 1:
+                gui.mask_alpha = 1
+
+        elif event.key == config['keyboard']['increase brightness']:
+
+            gui.c_max -= 0.05
+            if gui.c_max < 0:
+                gui.c_max = 0
+
+        elif event.key == config['keyboard']['decrease brightness']:
+
+            gui.c_max += 0.05
+            if gui.c_max > 1:
+                gui.c_max = 1
+
+        elif event.key == config['keyboard']['switch filter']:
+
+            gui.filter['counter'] += 1
+            gui.update_popup_text(
+                gui.filter['name'][
+                    gui.filter['counter'] % len(gui.filter['name'])], 0.25)
+
+        elif event.key == config['keyboard']['binary mask view']:
+
+            self.binary_mask = not self.binary_mask
+            gui.binary_mask(self.binary_mask)
+
+        elif event.key == config['keyboard']['enable / disable mask']:
+
+            gui.show_mask = not gui.show_mask
+            gui.mask_main_img.set_visible(gui.show_mask)
+            gui.mask_upper_img.set_visible(gui.show_mask)
+            gui.mask_lower_img.set_visible(gui.show_mask)
+
+        elif event.key == config['keyboard']['set slice']:
+
+            mask = self.get_view_mask()
+            mask_slice = gui.selected.reshape(mask[self.slice, :, :].shape)
+            mask[self.slice] = mask_slice
+            data.mask = self._swapaxes(mask, reversed_swap=True)
+            gui.disconnect()
+            gui.update_popup_text('Slice set', 0.25)
+            reset = True
+
+        elif event.key == config['keyboard']['load file']:
+
+            root = Tk()
+            root.withdraw()
+            fname = askopenfilename(
+                title="Select (f)MRI image data",
+                initialdir=os.path.dirname(os.path.abspath(data.volume_path)))
+            root.destroy()
+            if len(fname) > 0:
+                data.load_data(fname)
+                data.load_mask('auto')
+                self.slice = None if not config['start slice'] else config[
+                    'start slice']
+
+                if self.slice is None:
+                    self.slice = int(data.volume.shape[2] / 2)
+                self.axes_swaps = [(2, 0)]
+                reset = True
+                gui.ax_lims = None
+
+        elif event.key == config['keyboard']['load mask']:
+
+            root = Tk()
+            root.withdraw()
+            fname = askopenfilename(
+                title="Select (f)MRI image mask",
+                initialdir=os.path.dirname(os.path.abspath(data.volume_path)))
+            root.destroy()
+            if len(fname) > 0:
+                data.load_mask(fname)
+                gui.selected = self.get_view_mask(self.slice)
+                reset = True
+
+        elif event.key == config['keyboard']['reset zoom']:
+
+            gui.ax_lims = None
+
         else:
+
             update = False
 
         if reset:
             # reset selection if not set
-            self.reset_selection()
+            gui.reset_selection()
 
         # disable zoom and pan when updating window
         if update:
@@ -690,13 +664,6 @@ class Controller:
                               "Try setting different backend in config",
                               UserWarning)
             gui.update_plots()
-
-    def connect_gui(self):
-        """Connect :class:`vol2mask.GUI` to  :class:`vol2mask.Controller`
-        """
-        gui.cid = gui.fig.canvas.mpl_connect("key_release_event",
-                                             self.button_handler)
-        gui.update_plots()
 
 
 def main():
@@ -748,23 +715,19 @@ def main():
     args = parser.parse_args()
 
     if args.file == 'dialog':
-        if mpl.get_backend() == 'TkAgg':
-            root = Tk()
-            root.withdraw()
-            args.file = askopenfilename(
-                title="Select (f)MRI image data",
-                initialdir=os.getcwd())
-            root.destroy()
-        else:
-            raise Exception("Either provide input file using -f or change "
-                            "matplotlib backend to TkAgg to enable file "
-                            "selection dialogs (can be set in config.json).")
+        root = Tk()
+        root.withdraw()
+        args.file = askopenfilename(
+            title="Select (f)MRI image data",
+            initialdir=os.getcwd())
+        root.destroy()
 
     # start program
     data = Data(args.file, args.mask)
-    gui = GUI()
     controller = Controller()
-    controller.connect_gui()
+    gui = GUI()
+    gui.connect(controller.button_handler)
+
     plt.show()
 
 
