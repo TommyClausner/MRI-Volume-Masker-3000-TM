@@ -37,15 +37,15 @@ Open file selection dialog (if TkAgg backend, is default) and precompute mask fo
 
 Mask will be precomputed:
 
-`python vol2mask.py /path/to/volume.nii.gz`
+`python vol2mask.py -f /path/to/volume.nii.gz`
 
 or to load a previously computed mask:
 
-`python vol2mask.py /path/to/volume.nii.gz -m /path/to/m_volume.nii.gz`
+`python vol2mask.py -f /path/to/volume.nii.gz -m /path/to/m_volume.nii.gz`
 
 or no mask will be used:
 
-`python vol2mask.py /path/to/volume.nii.gz -m none`
+`python vol2mask.py -f /path/to/volume.nii.gz -m none`
 
 Afterwards maximize figure window.
 
