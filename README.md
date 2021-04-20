@@ -63,10 +63,10 @@ GUI functions rely on matplotlib and thus the correct choice of a backend. The d
 What I found works:
 - Windows: WxAgg
 - Linux: WxAgg
-- MacOS: TkAgg or Qt4Agg
+- MacOS: TkAgg or Qt5Agg
 
 The reason why TkAgg is not the default, is that on Windows machines users experienced some flickering / jumping glitches that do not occur using WxAgg. However WxAgg has issues on MacOS. TkAgg seems to work fine for that.
 
-For several backends (WxAgg / Qt4Agg / ...) third party packages need to be installed (Wx is already in the `requirements.txt`).
+For several backends (WxAgg / Qt5Agg / ...) third party packages need to be installed (Wx is already in the `requirements.txt`).
 
 You can easily find out which additional package / software is needed for the respective backend using a web search engine of your choice.
