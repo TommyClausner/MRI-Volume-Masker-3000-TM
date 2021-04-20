@@ -225,7 +225,7 @@ class GUI:
                                   (0, self.c_max))
 
         self.mask_main_img = _set_data(self.mask_main_img,
-                                       gui.selected.reshape(
+                                       self.selected.reshape(
                                            new_data[first_dim_ind, :, :].shape
                                        ),
                                        (0, 1),
@@ -341,13 +341,13 @@ class GUI:
         self.xy_compute()
         self.ind = path.contains_points(self.xys, radius=-1)
         self.selected.flat[self.ind] = 1 if self.draw_mode == 'add' else 0
-        gui.update_plots()
+        self.update_plots()
 
     def disconnect(self):
         """Remove lasso.
         """
         self.lasso.disconnect_events()
-        gui.update_plots()
+        self.update_plots()
 
     def xy_compute(self):
         """Transform image data into index data (for selection).
@@ -363,12 +363,12 @@ class GUI:
         self.xy_compute()
         self.ind = []
         self.selected = controller.get_view_mask(controller.slice).flatten()
-        self.lasso = LassoSelector(gui.main_ax, onselect=self.onselect)
+        self.lasso = LassoSelector(self.main_ax, onselect=self.onselect)
 
     def connect(self, button_handler):
         """Connect :class:`vol2mask.GUI` to  :class:`vol2mask.Controller`
         """
-        self.cid = gui.fig.canvas.mpl_connect("key_release_event",
+        self.cid = self.fig.canvas.mpl_connect("key_release_event",
                                               button_handler)
         self.reset_selection()
         self.update_plots()
