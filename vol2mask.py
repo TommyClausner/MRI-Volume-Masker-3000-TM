@@ -372,9 +372,13 @@ class GUI:
         self.cid = self.fig.canvas.mpl_connect("key_release_event",
                                                cntrl.button_handler)
         self.cid2 = self.fig.canvas.mpl_connect('close_event',
-                                                cntrl.save_warning)
+                                                self.save_warning)
         self.reset_selection()
         self.update_plots()
+
+    def save_warning(self, event):
+        if not controller.saved:
+            controller.save_warning(event)
 
 
 class Data:
@@ -459,6 +463,7 @@ class Controller:
     """
     binary_mask = False
     axes_swaps = [(2, 0)]
+    saved = False
 
     def __init__(self):
         """Constructor method
@@ -503,6 +508,8 @@ class Controller:
         return self._swapaxes(data.mask)
 
     def save_warning(self, event):
+        if self.saved:
+            return True
         root = Tk()
         root.withdraw()
         if event is not None:
@@ -561,8 +568,12 @@ class Controller:
 
             data.export_mask()
             gui.update_popup_text('Data successfully exported', 0.25)
+            self.saved = True
 
         elif event.key == config['keyboard']['quit']:
+            if not self.saved:
+                self.save_warning(1)
+                self.saved = True
             gui.update_popup_text('Later...', 0.25)
             plt.close(gui.fig)
             sys.exit()
@@ -619,6 +630,7 @@ class Controller:
             gui.disconnect()
             gui.update_popup_text('Slice set', 0.25)
             reset = True
+            self.saved = False
 
         elif event.key == config['keyboard']['load file']:
             msg = self.save_warning(None)
