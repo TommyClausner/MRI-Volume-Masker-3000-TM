@@ -12,7 +12,7 @@ import argparse
 import json
 import os
 import sys
-from tkinter import Tk  # from tkinter import Tk for Python 3.x
+from tkinter import Tk, messagebox
 from tkinter.filedialog import askopenfilename
 import warnings
 
@@ -369,7 +369,7 @@ class GUI:
         """Connect :class:`vol2mask.GUI` to  :class:`vol2mask.Controller`
         """
         self.cid = self.fig.canvas.mpl_connect("key_release_event",
-                                              button_handler)
+                                               button_handler)
         self.reset_selection()
         self.update_plots()
 
@@ -499,6 +499,15 @@ class Controller:
             return self._swapaxes(data.mask)[first_dim_ind, :, :]
         return self._swapaxes(data.mask)
 
+    def save_warning(self):
+        root = Tk()
+        root.withdraw()
+        msg = messagebox.askyesnocancel ('Save mask', 'Save current mask?')
+        if msg:
+            data.export_mask()
+        root.destroy()
+        return msg
+
     def button_handler(self, event):
         """Handles button presses
         """
@@ -548,10 +557,11 @@ class Controller:
             gui.update_popup_text('Data successfully exported', 0.25)
 
         elif event.key == config['keyboard']['quit']:
-
-            gui.update_popup_text('Later...', 0.25)
-            plt.close(gui.fig)
-            sys.exit()
+            msg = self.save_warning()
+            if msg is not None:
+                gui.update_popup_text('Later...', 0.25)
+                plt.close(gui.fig)
+                sys.exit()
 
         elif event.key == config['keyboard']['increase mask alpha']:
 
@@ -607,37 +617,41 @@ class Controller:
             reset = True
 
         elif event.key == config['keyboard']['load file']:
+            msg = self.save_warning()
+            if msg is not None:
+                root = Tk()
+                root.withdraw()
+                fname = askopenfilename(
+                    title="Select (f)MRI image data",
+                    initialdir=os.path.dirname(os.path.abspath(
+                        data.volume_path)))
+                root.destroy()
+                if len(fname) > 0:
+                    data.load_data(fname)
+                    data.load_mask('auto')
+                    self.slice = None if not config['start slice'] else config[
+                        'start slice']
 
-            root = Tk()
-            root.withdraw()
-            fname = askopenfilename(
-                title="Select (f)MRI image data",
-                initialdir=os.path.dirname(os.path.abspath(data.volume_path)))
-            root.destroy()
-            if len(fname) > 0:
-                data.load_data(fname)
-                data.load_mask('auto')
-                self.slice = None if not config['start slice'] else config[
-                    'start slice']
-
-                if self.slice is None:
-                    self.slice = int(data.volume.shape[2] / 2)
-                self.axes_swaps = [(2, 0)]
-                reset = True
-                gui.ax_lims = None
+                    if self.slice is None:
+                        self.slice = int(data.volume.shape[2] / 2)
+                    self.axes_swaps = [(2, 0)]
+                    reset = True
+                    gui.ax_lims = None
 
         elif event.key == config['keyboard']['load mask']:
-
-            root = Tk()
-            root.withdraw()
-            fname = askopenfilename(
-                title="Select (f)MRI image mask",
-                initialdir=os.path.dirname(os.path.abspath(data.volume_path)))
-            root.destroy()
-            if len(fname) > 0:
-                data.load_mask(fname)
-                gui.selected = self.get_view_mask(self.slice)
-                reset = True
+            msg = self.save_warning()
+            if msg is not None:
+                root = Tk()
+                root.withdraw()
+                fname = askopenfilename(
+                    title="Select (f)MRI image mask",
+                    initialdir=os.path.dirname(os.path.abspath(
+                        data.volume_path)))
+                root.destroy()
+                if len(fname) > 0:
+                    data.load_mask(fname)
+                    gui.selected = self.get_view_mask(self.slice)
+                    reset = True
 
         elif event.key == config['keyboard']['reset zoom']:
 
