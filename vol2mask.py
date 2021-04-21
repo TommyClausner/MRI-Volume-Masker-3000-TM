@@ -501,7 +501,7 @@ class Controller:
             return self._swapaxes(data.mask)[first_dim_ind, :, :]
         return self._swapaxes(data.mask)
 
-    def save_warning(self, _):
+    def save_warning(self, _):  # ignore event, which will be used by listener
         root = Tk()
         root.withdraw()
         msg = messagebox.askyesnocancel ('Save mask', 'Save current mask?')
@@ -559,7 +559,7 @@ class Controller:
             gui.update_popup_text('Data successfully exported', 0.25)
 
         elif event.key == config['keyboard']['quit']:
-            msg = self.save_warning()
+            msg = self.save_warning(None)
             if msg is not None:
                 gui.update_popup_text('Later...', 0.25)
                 plt.close(gui.fig)
@@ -619,7 +619,7 @@ class Controller:
             reset = True
 
         elif event.key == config['keyboard']['load file']:
-            msg = self.save_warning()
+            msg = self.save_warning(None)
             if msg is not None:
                 root = Tk()
                 root.withdraw()
@@ -641,7 +641,7 @@ class Controller:
                     gui.ax_lims = None
 
         elif event.key == config['keyboard']['load mask']:
-            msg = self.save_warning()
+            msg = self.save_warning(None)
             if msg is not None:
                 root = Tk()
                 root.withdraw()
