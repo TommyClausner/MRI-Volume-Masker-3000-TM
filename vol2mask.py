@@ -372,7 +372,7 @@ class GUI:
         self.cid = self.fig.canvas.mpl_connect("key_release_event",
                                                cntrl.button_handler)
         self.cid2 = self.fig.canvas.mpl_connect('close_event',
-                                                controller.save_warning)
+                                                cntrl.save_warning)
         self.reset_selection()
         self.update_plots()
 
