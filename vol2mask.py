@@ -559,11 +559,9 @@ class Controller:
             gui.update_popup_text('Data successfully exported', 0.25)
 
         elif event.key == config['keyboard']['quit']:
-            msg = self.save_warning(None)
-            if msg is not None:
-                gui.update_popup_text('Later...', 0.25)
-                plt.close(gui.fig)
-                sys.exit()
+            gui.update_popup_text('Later...', 0.25)
+            plt.close(gui.fig)
+            sys.exit()
 
         elif event.key == config['keyboard']['increase mask alpha']:
 
