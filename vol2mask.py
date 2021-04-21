@@ -501,10 +501,13 @@ class Controller:
             return self._swapaxes(data.mask)[first_dim_ind, :, :]
         return self._swapaxes(data.mask)
 
-    def save_warning(self, _):  # ignore event, which will be used by listener
+    def save_warning(self, event):
         root = Tk()
         root.withdraw()
-        msg = messagebox.askyesnocancel ('Save mask', 'Save current mask?')
+        if event is not None:
+            msg = messagebox.askyesno('Save mask', 'Save current mask?')
+        else:
+            msg = messagebox.askyesnocancel ('Save mask', 'Save current mask?')
         if msg:
             data.export_mask()
         root.destroy()
