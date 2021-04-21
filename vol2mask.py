@@ -42,6 +42,7 @@ class GUI:
     info_text_font = {'horizontalalignment': 'center', 'size': 16}
 
     cid = None
+    cid2 = None
 
     ax_lims = None
 
