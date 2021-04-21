@@ -372,13 +372,9 @@ class GUI:
         self.cid = self.fig.canvas.mpl_connect("key_release_event",
                                                cntrl.button_handler)
         self.cid2 = self.fig.canvas.mpl_connect('close_event',
-                                                self.save_warning)
+                                                controller.save_warning)
         self.reset_selection()
         self.update_plots()
-
-    def save_warning(self, event):
-        if not controller.saved:
-            controller.save_warning(event)
 
 
 class Data:
@@ -653,6 +649,7 @@ class Controller:
                     self.axes_swaps = [(2, 0)]
                     reset = True
                     gui.ax_lims = None
+                    self.saved = False
 
         elif event.key == config['keyboard']['load mask']:
             msg = self.save_warning(None)
@@ -668,6 +665,7 @@ class Controller:
                     data.load_mask(fname)
                     gui.selected = self.get_view_mask(self.slice)
                     reset = True
+                    self.saved = True
 
         elif event.key == config['keyboard']['reset zoom']:
 
