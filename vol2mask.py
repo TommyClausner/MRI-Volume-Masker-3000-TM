@@ -365,11 +365,13 @@ class GUI:
         self.selected = controller.get_view_mask(controller.slice).flatten()
         self.lasso = LassoSelector(self.main_ax, onselect=self.onselect)
 
-    def connect(self, button_handler):
+    def connect(self, cntrl):
         """Connect :class:`vol2mask.GUI` to  :class:`vol2mask.Controller`
         """
         self.cid = self.fig.canvas.mpl_connect("key_release_event",
-                                               button_handler)
+                                               cntrl.button_handler)
+        self.cid2 = self.fig.canvas.mpl_connect('close_event',
+                                                cntrl.save_warning)
         self.reset_selection()
         self.update_plots()
 
@@ -499,7 +501,7 @@ class Controller:
             return self._swapaxes(data.mask)[first_dim_ind, :, :]
         return self._swapaxes(data.mask)
 
-    def save_warning(self):
+    def save_warning(self, _):
         root = Tk()
         root.withdraw()
         msg = messagebox.askyesnocancel ('Save mask', 'Save current mask?')
@@ -740,7 +742,7 @@ def main():
     data = Data(args.file, args.mask)
     controller = Controller()
     gui = GUI()
-    gui.connect(controller.button_handler)
+    gui.connect(controller)
 
     plt.show()
 
