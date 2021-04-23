@@ -9,6 +9,7 @@ Author:
 """
 
 import argparse
+from collections import deque
 import json
 import os
 import sys
@@ -151,10 +152,7 @@ class GUI:
         :param img: The new volume data (3D).
         :type img: ndarray
         """
-        extent = [0,
-                  img.shape[2],
-                  img.shape[1],
-                  0]
+        extent = [0, img.shape[2], img.shape[1], 0]
         self.main_img.set_extent(extent)
 
         self.mask_main_img.set_extent(extent)
@@ -181,30 +179,15 @@ class GUI:
             self.main_ax.set_ylim(
                 [controller.get_view_data(controller.slice).shape[0], 0])
 
-    def update_plots(self, new_data=None, new_mask=None, first_dim_ind=None):
+    def update_plots(self):
         """Updates all plots.
-
-        :param new_data: New volume data (3D) to update the plots.
-        :type new_data: None|ndarray, optional
-        :param new_mask: New volume mask (3D) to update the plots.
-        :type new_mask: None|ndarray, optional
-        :param first_dim_ind: Slice index to show. If None (default) the middle
-            slice will be selected.
-        :type first_dim_ind: None|int, optional
-        :return:
         """
-        if new_data is None:
-            new_data = controller.get_view_data()
-
-        if new_mask is None:
-            new_mask = controller.get_view_mask()
-
-        if first_dim_ind is None:
-            first_dim_ind = controller.slice
+        new_data = controller.get_view_data()
+        new_mask = controller.get_view_mask()
 
         # function to actually set the data
-        def _set_data(img, data, clim=None, alpha=None):
-            img.set_data(data)
+        def _set_data(img, img_data, clim=None, alpha=None):
+            img.set_data(img_data)
             if alpha is not None:
                 img.set_alpha(alpha)
             if clim is not None:
@@ -222,26 +205,23 @@ class GUI:
 
         # central block with mask
         self.main_img = _set_data(self.main_img,
-                                  new_data[first_dim_ind, :, :],
+                                  new_data[controller.slice, :, :],
                                   (0, self.c_max))
 
-        self.mask_main_img = _set_data(self.mask_main_img,
-                                       self.selected.reshape(
-                                           new_data[first_dim_ind, :, :].shape
-                                       ),
-                                       (0, 1),
-                                       self.mask_alpha)
+        self.mask_main_img = _set_data(
+            self.mask_main_img,
+            self.selected.reshape(new_data[controller.slice, :, :].shape),
+            (0, 1), self.mask_alpha)
         self.update_axes_limits(self.ax_lims)
         self.update_img_extent(new_data)
         # upper right corner with mask
-        self.upper_img = _set_data(self.upper_img,
-                                   new_data[:,
-                                   int(new_data.shape[1] / 2), :].T,
-                                   (0, self.c_max))
+        self.upper_img = _set_data(
+            self.upper_img, new_data[:, int(new_data.shape[1] / 2), :].T,
+            (0, self.c_max))
 
         tmp_alpha = self.mask_alpha * np.ones_like(
             new_data[:, int(new_data.shape[1] / 2), :].T)
-        tmp_alpha[:, first_dim_ind] = 1
+        tmp_alpha[:, controller.slice] = 1
         self.mask_upper_img = _set_data(self.mask_upper_img,
                                         new_mask[:, int(
                                             new_data.shape[1] / 2), :].T,
@@ -256,7 +236,7 @@ class GUI:
 
         tmp_alpha = self.mask_alpha * np.ones_like(
             new_data[:, :, int(new_data.shape[2] / 2)].T)
-        tmp_alpha[:, first_dim_ind] = 1
+        tmp_alpha[:, controller.slice] = 1
         self.mask_lower_img = _set_data(self.mask_lower_img,
                                         new_mask[:, :, int(
                                             new_data.shape[2] / 2)].T,
@@ -342,6 +322,7 @@ class GUI:
         self.xy_compute()
         self.ind = path.contains_points(self.xys, radius=-1)
         self.selected.flat[self.ind] = 1 if self.draw_mode == 'add' else 0
+        controller.reset = False
         self.update_plots()
 
     def disconnect(self):
@@ -458,26 +439,22 @@ class Controller:
     """Controller for Tommy's Volume Masker 3000 TM.
     """
     binary_mask = False
-    axes_swaps = [(2, 0)]
+    axes_swaps = (2, 0)
     saved = False
+    view = deque([(0, 2), (1, 2), (0, 1)])
+    update = True
+    reset = False
 
     def __init__(self):
         """Constructor method
         """
-        self.slice = None if not config['start slice'] else config[
-            'start slice']
+        self.slices = deque([int(data.volume.shape[2] / 2),
+                             int(data.volume.shape[0] / 2),
+                             int(data.volume.shape[1] / 2)])
+        self.slice = self.slices[0]
 
-        if self.slice is None:
-            self.slice = int(data.volume.shape[2] / 2)
-
-    def _swapaxes(self, raw_data, reversed_swap=False):
-        if reversed_swap:
-            for so in self.axes_swaps[::-1]:
-                raw_data = raw_data.swapaxes(*so)
-        else:
-            for so in self.axes_swaps:
-                raw_data = raw_data.swapaxes(*so)
-        return raw_data
+    def _swapaxes(self, raw_data):
+        return raw_data.swapaxes(*self.axes_swaps)
 
     def get_view_data(self, first_dim_ind=None):
         """Return 3D volume data.
@@ -511,7 +488,7 @@ class Controller:
         if event is not None:
             msg = messagebox.askyesno('Save mask', 'Save current mask?')
         else:
-            msg = messagebox.askyesnocancel ('Save mask', 'Save current mask?')
+            msg = messagebox.askyesnocancel('Save mask', 'Save current mask?')
         if msg:
             data.export_mask()
         root.destroy()
@@ -520,8 +497,8 @@ class Controller:
     def button_handler(self, event):
         """Handles button presses
         """
-        update = True
-        reset = False
+        self.update = True
+        self.reset = False
 
         # execute button specific function or just pass (update = False)
         if event.key == "h":
@@ -538,22 +515,25 @@ class Controller:
             self.slice += 1
             if self.slice >= self.get_view_data().shape[0]:
                 self.slice = self.get_view_data().shape[0] - 1
-            reset = True
+            self.reset = True
 
         elif event.key == config['keyboard']['slice down']:
 
             self.slice -= 1
             if self.slice < 0:
                 self.slice = 0
-            reset = True
+            self.reset = True
 
         elif event.key == config['keyboard']['switch view plane']:
+            self.slices[0] = self.slice + 0  # ensure copy
 
-            self.axes_swaps.append((0, 2))
-            self.axes_swaps.append((1, 2))
-            self.slice = int(self.get_view_data().shape[0] / 2)
+            self.view.rotate(-1)
+            self.slices.rotate(-1)
+
+            self.axes_swaps = self.view[0]
+            self.slice = self.slices[0]
             gui.ax_lims = None
-            reset = True
+            self.reset = True
 
         elif event.key == config['keyboard']['switch draw mode']:
 
@@ -622,10 +602,10 @@ class Controller:
             mask = self.get_view_mask()
             mask_slice = gui.selected.reshape(mask[self.slice, :, :].shape)
             mask[self.slice] = mask_slice
-            data.mask = self._swapaxes(mask, reversed_swap=True)
+            data.mask = self._swapaxes(mask)
             gui.disconnect()
             gui.update_popup_text('Slice set', 0.25)
-            reset = True
+            self.reset = True
             self.saved = False
 
         elif event.key == config['keyboard']['load file']:
@@ -641,13 +621,14 @@ class Controller:
                 if len(fname) > 0:
                     data.load_data(fname)
                     data.load_mask('auto')
-                    self.slice = None if not config['start slice'] else config[
-                        'start slice']
+                    self.slices = deque([int(data.volume.shape[2] / 2),
+                                         int(data.volume.shape[0] / 2),
+                                         int(data.volume.shape[1] / 2)])
+                    self.slice = self.slices[0]
+                    self.view = deque([(0, 2), (1, 2), (0, 1)])
 
-                    if self.slice is None:
-                        self.slice = int(data.volume.shape[2] / 2)
-                    self.axes_swaps = [(2, 0)]
-                    reset = True
+                    self.axes_swaps = self.view[0]
+                    self.reset = True
                     gui.ax_lims = None
                     self.saved = False
 
@@ -664,7 +645,7 @@ class Controller:
                 if len(fname) > 0:
                     data.load_mask(fname)
                     gui.selected = self.get_view_mask(self.slice)
-                    reset = True
+                    self.reset = True
                     self.saved = True
 
         elif event.key == config['keyboard']['reset zoom']:
@@ -673,14 +654,14 @@ class Controller:
 
         else:
 
-            update = False
+            self.update = False
 
-        if reset:
+        if self.reset:
             # reset selection if not set
             gui.reset_selection()
 
         # disable zoom and pan when updating window
-        if update:
+        if self.update:
 
             # in case backend does not support tools
             try:
