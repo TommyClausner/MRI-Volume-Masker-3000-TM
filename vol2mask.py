@@ -216,30 +216,27 @@ class GUI:
         self.update_img_extent(new_data)
         # upper right corner with mask
         self.upper_img = _set_data(
-            self.upper_img, new_data[:, int(new_data.shape[1] / 2), :].T,
+            self.upper_img, new_data[:, controller.slices[2], :].T,
             (0, self.c_max))
 
         tmp_alpha = self.mask_alpha * np.ones_like(
             new_data[:, int(new_data.shape[1] / 2), :].T)
         tmp_alpha[:, controller.slice] = 1
         self.mask_upper_img = _set_data(self.mask_upper_img,
-                                        new_mask[:, int(
-                                            new_data.shape[1] / 2), :].T,
+                                        new_mask[:, controller.slices[2], :].T,
                                         (0, 1),
                                         tmp_alpha)
 
         # lower right corner with mask
         self.lower_img = _set_data(self.lower_img,
-                                   new_data[:, :, int(
-                                       new_data.shape[2] / 2)].T,
+                                   new_data[:, :, controller.slices[1]].T,
                                    (0, self.c_max))
 
         tmp_alpha = self.mask_alpha * np.ones_like(
             new_data[:, :, int(new_data.shape[2] / 2)].T)
         tmp_alpha[:, controller.slice] = 1
         self.mask_lower_img = _set_data(self.mask_lower_img,
-                                        new_mask[:, :, int(
-                                            new_data.shape[2] / 2)].T,
+                                        new_mask[:, :, controller.slices[1]].T,
                                         (0, 1),
                                         tmp_alpha)
 
