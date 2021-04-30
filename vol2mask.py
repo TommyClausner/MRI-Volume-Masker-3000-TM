@@ -25,6 +25,7 @@ from dipy.segment.mask import median_otsu
 from matplotlib.path import Path
 from matplotlib.widgets import LassoSelector
 from scipy import ndimage
+from skimage.measure import label
 
 
 class GUI:
@@ -420,6 +421,13 @@ class Data:
                 # same initial axes swap as for volume
                 self.mask = nib.load(make_mask).get_fdata()
                 print('done.')
+
+        if config['remove small clusters'] and (np.sum(self.mask) > 0):
+            # only keep biggest data cluster (brain) - removes small clusters
+            label_image = label(self.mask)
+            max_label = sorted([[np.sum(label_image == val), val]
+                                for val in np.unique(label_image)[1:]])[-1][1]
+            self.mask[label_image != max_label] = 0
 
     def export_mask(self):
         """Write mask to file.

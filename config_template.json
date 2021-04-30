@@ -2,6 +2,7 @@
   "backend": "WxAgg",
   "start draw mode": "remove",
   "start filter": "no filter",
+  "remove small clusters": true,
   "data colormap": "gray",
   "mask colormap": "RdYlGn",
   "info text color": "white",
