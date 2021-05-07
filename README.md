@@ -31,7 +31,7 @@ load mask: ctrl+o
 ![example image](https://github.com/TommyClausner/MRI-Volume-Masker-3000-TM/blob/main/example.png?raw=true)
 
 ### start
-Open file selection dialog (if TkAgg backend, is default) and precompute mask for selected:
+Open file selection dialog and precompute mask for selected:
 
 `python vol2mask.py`
 
