@@ -1,4 +1,6 @@
-# Tommy's MRI-Volume-Masker-3000-TM
+# Tommy's MRI-Volume-Masker-3000-TM 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7211758.svg)](https://doi.org/10.5281/zenodo.7211758)
+
 
 Use to draw volumetric masks for brain data. Requires python >= 3.7
 
